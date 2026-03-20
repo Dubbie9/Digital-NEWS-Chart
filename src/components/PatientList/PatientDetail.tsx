@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import type { Patient, Observation } from '@/types';
 import ScoreDisplay from '@/components/ScoreDisplay/ScoreDisplay';
@@ -6,6 +6,8 @@ import NEWS2VisualChart, { type ChartDisplayMode } from '@/components/Chart/NEWS
 import Chart from '@/components/Chart/Chart';
 import ObservationHistory from '@/components/Chart/ObservationHistory';
 import { exportPatientObservations } from '@/lib/exportCsv';
+import { exportChartAsPDF } from '@/lib/pdf';
+import { useAuth } from '@/hooks/useAuth';
 
 interface Props {
   patients: Patient[];
@@ -26,6 +28,8 @@ function getMonthLabel(year: number, month: number): string {
 
 export default function PatientDetail({ patients, observations }: Props) {
   const { id } = useParams<{ id: string }>();
+  const { ward } = useAuth();
+  const chartRef = useRef<HTMLDivElement>(null);
   const [activeTab, setActiveTab] = useState<TabId>('chart');
   const [chartMode, setChartMode] = useState<ChartDisplayMode>('dots');
   const now = new Date();
@@ -103,7 +107,16 @@ export default function PatientDetail({ patients, observations }: Props) {
               <path d="M10.75 2.75a.75.75 0 00-1.5 0v8.614L6.295 8.235a.75.75 0 10-1.09 1.03l4.25 4.5a.75.75 0 001.09 0l4.25-4.5a.75.75 0 00-1.09-1.03l-2.955 3.129V2.75z" />
               <path d="M3.5 12.75a.75.75 0 00-1.5 0v2.5A2.75 2.75 0 004.75 18h10.5A2.75 2.75 0 0018 15.25v-2.5a.75.75 0 00-1.5 0v2.5c0 .69-.56 1.25-1.25 1.25H4.75c-.69 0-1.25-.56-1.25-1.25v-2.5z" />
             </svg>
-            Export
+            Excel
+          </button>
+          <button
+            onClick={() => exportChartAsPDF('news-chart', patient, ward?.name || 'Unknown Ward')}
+            className="group inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-600 shadow-sm transition-all hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-md sm:gap-2 sm:px-5 sm:py-2.5 sm:text-sm"
+          >
+            <svg className="h-3.5 w-3.5 sm:h-4 sm:w-4" viewBox="0 0 20 20" fill="currentColor">
+              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm.75-11.25a.75.75 0 00-1.5 0v4.59L7.47 9.56a.75.75 0 00-1.06 1.06l3.25 3.25a.75.75 0 001.06 0l3.25-3.25a.75.75 0 10-1.06-1.06l-1.78 1.78V6.75z" clipRule="evenodd" />
+            </svg>
+            PDF
           </button>
           <Link
             to={`/patients/${patient.id}/observe`}
@@ -226,7 +239,14 @@ export default function PatientDetail({ patients, observations }: Props) {
             </div>
           )}
 
-          <NEWS2VisualChart observations={patientObs} displayMode={chartMode} year={chartYear} month={chartMonth} />
+          <NEWS2VisualChart
+            ref={chartRef}
+            id="news-chart"
+            observations={patientObs}
+            displayMode={chartMode}
+            year={chartYear}
+            month={chartMonth}
+          />
         </>
       )}
       {activeTab === 'table' && (
