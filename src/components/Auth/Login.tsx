@@ -134,7 +134,6 @@ export default function Login({ onLogin, onSignup }: Props) {
 
           {/* Nav links */}
           <nav className="hidden items-center gap-8 text-sm text-slate-300 md:flex">
-            <a href="#" className="font-sans transition hover:text-white">Product</a>
             <a href="#" className="font-sans transition hover:text-white">Features</a>
             <button onClick={() => setShowPricing(true)} className="font-sans transition hover:text-white">Pricing</button>
             <a href="#" className="font-sans transition hover:text-white">Contact</a>

@@ -176,10 +176,10 @@ const NEWS2VisualChart = forwardRef<HTMLDivElement, Props>(
         className="relative -mx-3 overflow-x-auto rounded-lg shadow sm:mx-0"
         onScroll={computeLines}
       >
-        {/* SVG overlay for connecting lines and declined markers */}
+        {/* SVG overlay for connecting lines — must match full scrollable width */}
         <svg
           className="pointer-events-none absolute top-0 left-0"
-          style={{ width: '100%', height: '100%', zIndex: 10 }}
+          style={{ minWidth: `${130 + dayColumns.length * 48}px`, width: '100%', height: '100%', zIndex: 10 }}
         >
           {lines.map((line, i) => (
             <line
