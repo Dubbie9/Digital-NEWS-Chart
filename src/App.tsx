@@ -1,14 +1,14 @@
 import { useState } from 'react';
 import { Routes, Route, Link, Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
-import { MOCK_PATIENTS, MOCK_OBSERVATIONS } from '@/lib/mockData';
-import type { Patient, Observation } from '@/types';
+import { useData } from '@/hooks/useData';
 import Login from '@/components/Auth/Login';
 import Dashboard from '@/components/Dashboard/Dashboard';
 import PatientList from '@/components/PatientList/PatientList';
 import NewPatient from '@/components/PatientList/NewPatient';
 import PatientDetail from '@/components/PatientList/PatientDetail';
 import EntryForm from '@/components/EntryForm/EntryForm';
+import Settings from '@/components/Settings/Settings';
 
 function NavLink({ to, children }: { to: string; children: React.ReactNode }) {
   const location = useLocation();
@@ -26,22 +26,25 @@ function NavLink({ to, children }: { to: string; children: React.ReactNode }) {
 }
 
 export default function App() {
-  const { isAuthenticated, ward, staffName, initials, login, logout, signup } = useAuth();
-  const [patients, setPatients] = useState<Patient[]>(MOCK_PATIENTS);
-  const [observations, setObservations] = useState<Observation[]>(MOCK_OBSERVATIONS);
+  const { isAuthenticated, isLoading, ward, staffName, initials, logout } = useAuth();
+  const { patients, observations, addPatient, addObservation } = useData();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
-  if (!isAuthenticated) {
-    return <Login onLogin={login} onSignup={signup} />;
+  // Show loading state while checking auth
+  if (isLoading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-slate-50">
+        <div className="flex flex-col items-center gap-3">
+          <div className="h-8 w-8 animate-spin rounded-full border-2 border-[#00AEEF] border-t-transparent" />
+          <p className="text-sm text-slate-400">Loading...</p>
+        </div>
+      </div>
+    );
   }
 
-  const addPatient = (patient: Patient) => {
-    setPatients((prev) => [...prev, patient]);
-  };
-
-  const addObservation = (observation: Observation) => {
-    setObservations((prev) => [...prev, observation]);
-  };
+  if (!isAuthenticated) {
+    return <Login />;
+  }
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -65,6 +68,7 @@ export default function App() {
             <div className="hidden items-center gap-5 md:flex">
               <NavLink to="/">Dashboard</NavLink>
               <NavLink to="/patients">Patients</NavLink>
+              <NavLink to="/settings">Settings</NavLink>
             </div>
           </div>
 
@@ -108,6 +112,7 @@ export default function App() {
               <div className="flex flex-col gap-3">
                 <Link to="/" onClick={() => setMobileMenuOpen(false)} className="rounded-xl px-3 py-2 text-sm text-slate-300 transition hover:bg-white/10 hover:text-white">Dashboard</Link>
                 <Link to="/patients" onClick={() => setMobileMenuOpen(false)} className="rounded-xl px-3 py-2 text-sm text-slate-300 transition hover:bg-white/10 hover:text-white">Patients</Link>
+                <Link to="/settings" onClick={() => setMobileMenuOpen(false)} className="rounded-xl px-3 py-2 text-sm text-slate-300 transition hover:bg-white/10 hover:text-white">Settings</Link>
                 <div className="border-t border-white/10 pt-3">
                   <div className="flex items-center gap-2 px-3">
                     <div className="flex h-6 w-6 items-center justify-center rounded-full bg-[#00AEEF]/15 text-[10px] font-bold text-[#00AEEF]">
@@ -136,6 +141,7 @@ export default function App() {
           <Route path="/patients/new" element={<NewPatient onAdd={addPatient} />} />
           <Route path="/patients/:id" element={<PatientDetail patients={patients} observations={observations} />} />
           <Route path="/patients/:id/observe" element={<EntryForm onSave={addObservation} staffName={staffName} />} />
+          <Route path="/settings" element={<Settings />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </main>

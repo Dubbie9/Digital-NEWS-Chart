@@ -4,6 +4,8 @@ import type { Patient, Observation } from '@/types';
 import { CLINICAL_RESPONSES } from '@/lib/scoring';
 import ObservationModal from '@/components/EntryForm/ObservationModal';
 import { exportAllObservations } from '@/lib/exportCsv';
+import { useAuth } from '@/hooks/useAuth';
+import { seedDemoData } from '@/lib/seedData';
 
 interface Props {
   patients: Patient[];
@@ -13,7 +15,9 @@ interface Props {
 }
 
 export default function Dashboard({ patients, observations, staffName, onAddObservation }: Props) {
+  const { cryptoKey } = useAuth();
   const [modalPatient, setModalPatient] = useState<Patient | null>(null);
+  const [seeding, setSeeding] = useState(false);
 
   const today = new Date().toDateString();
   const todayObs = observations.filter(
@@ -25,6 +29,16 @@ export default function Dashboard({ patients, observations, staffName, onAddObse
       .filter((o) => o.patientId === patientId)
       .sort((a, b) => new Date(b.recordedAt).getTime() - new Date(a.recordedAt).getTime())[0];
   }
+
+  // Sort patients by room/bed number
+  const sortedByRoom = [...patients].sort((a, b) => {
+    const roomA = a.roomNumber || '';
+    const roomB = b.roomNumber || '';
+    const numA = parseInt(roomA, 10);
+    const numB = parseInt(roomB, 10);
+    if (!isNaN(numA) && !isNaN(numB)) return numA - numB;
+    return roomA.localeCompare(roomB);
+  });
 
   return (
     <div className="space-y-6">
@@ -61,15 +75,35 @@ export default function Dashboard({ patients, observations, staffName, onAddObse
         <StatCard label="Total Observations" value={String(observations.length)} icon="chart" />
       </section>
 
-      {/* Patient list */}
+      {/* Today's Observations — patients sorted by room number */}
       <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
         <div className="border-b border-slate-100 px-4 py-3 sm:px-6 sm:py-4">
-          <h2 className="text-base font-semibold text-[#0B1E36]">Patients</h2>
+          <h2 className="text-base font-semibold text-[#0B1E36]">
+            Today's Observations
+            <span className="ml-2 text-xs font-normal text-slate-400">
+              {new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })}
+            </span>
+          </h2>
         </div>
 
         {patients.length === 0 ? (
-          <div className="px-4 py-10 text-center text-sm text-slate-400 sm:px-6 sm:py-12">
-            No patients yet. Click &quot;+ New Patient&quot; to add one.
+          <div className="px-4 py-10 text-center sm:px-6 sm:py-12">
+            <p className="mb-4 text-sm text-slate-400">No patients yet. Add a patient or load demo data.</p>
+            <button
+              onClick={async () => {
+                if (!cryptoKey || seeding) return;
+                setSeeding(true);
+                try {
+                  await seedDemoData(cryptoKey);
+                } finally {
+                  setSeeding(false);
+                }
+              }}
+              disabled={seeding}
+              className="rounded-full border border-slate-200 bg-white px-5 py-2 text-xs font-medium text-slate-600 shadow-sm transition-all hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-md disabled:opacity-40"
+            >
+              {seeding ? 'Loading demo data...' : 'Load Demo Data (15 patients, 36 days)'}
+            </button>
           </div>
         ) : (
           <>
@@ -78,17 +112,17 @@ export default function Dashboard({ patients, observations, staffName, onAddObse
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-slate-100 bg-slate-50 text-left text-xs font-medium uppercase tracking-wider text-slate-400">
-                    <th className="px-4 py-3 md:px-6">Patient Name</th>
+                    <th className="px-4 py-3 md:px-6">Name</th>
                     <th className="px-4 py-3 md:px-6">Room / Bed</th>
-                    <th className="hidden px-4 py-3 lg:table-cell md:px-6">NHS Number</th>
-                    <th className="px-4 py-3 text-center md:px-6">Last Known Score</th>
-                    <th className="px-4 py-3 text-right md:px-6">Action</th>
+                    <th className="px-4 py-3 text-center md:px-6">Score</th>
+                    <th className="px-4 py-3 text-right md:px-6"></th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {patients.map((patient) => {
+                  {sortedByRoom.map((patient) => {
                     const latest = latestObsFor(patient.id);
                     const response = latest ? CLINICAL_RESPONSES[latest.riskLevel] : null;
+                    const hasTodayObs = todayObs.some((o) => o.patientId === patient.id);
 
                     return (
                       <tr key={patient.id} className="transition hover:bg-slate-50">
@@ -99,18 +133,20 @@ export default function Dashboard({ patients, observations, staffName, onAddObse
                           >
                             {patient.lastName}, {patient.firstName}
                           </Link>
+                          {hasTodayObs && (
+                            <span className="ml-2 inline-block h-1.5 w-1.5 rounded-full bg-green-400" title="Observed today" />
+                          )}
                         </td>
                         <td className="px-4 py-3 text-slate-500 md:px-6">
                           {patient.roomNumber || '—'}
                         </td>
-                        <td className="hidden px-4 py-3 text-slate-500 lg:table-cell md:px-6">
-                          {patient.nhsNumber || '—'}
-                        </td>
                         <td className="px-4 py-3 text-center md:px-6">
-                          {response && latest && (
+                          {response && latest ? (
                             <span className={`inline-block rounded-full px-3 py-1 text-xs font-semibold ${response.colour}`}>
                               {latest.totalScore}
                             </span>
+                          ) : (
+                            <span className="text-xs text-slate-300">—</span>
                           )}
                         </td>
                         <td className="px-4 py-3 text-right md:px-6">
@@ -130,9 +166,10 @@ export default function Dashboard({ patients, observations, staffName, onAddObse
 
             {/* Mobile card list */}
             <div className="divide-y divide-slate-100 sm:hidden">
-              {patients.map((patient) => {
+              {sortedByRoom.map((patient) => {
                 const latest = latestObsFor(patient.id);
                 const response = latest ? CLINICAL_RESPONSES[latest.riskLevel] : null;
+                const hasTodayObs = todayObs.some((o) => o.patientId === patient.id);
 
                 return (
                   <div key={patient.id} className="flex items-center justify-between gap-3 px-4 py-3">
@@ -142,9 +179,12 @@ export default function Dashboard({ patients, observations, staffName, onAddObse
                         className="block truncate text-sm font-medium text-[#0B1E36] transition hover:text-[#00AEEF]"
                       >
                         {patient.lastName}, {patient.firstName}
+                        {hasTodayObs && (
+                          <span className="ml-1.5 inline-block h-1.5 w-1.5 rounded-full bg-green-400" />
+                        )}
                       </Link>
                       <p className="text-xs text-slate-400">
-                        {patient.roomNumber ? `Room ${patient.roomNumber}` : 'No room'}
+                        {patient.roomNumber || 'No bed'}
                         {response && latest && (
                           <span className={`ml-2 inline-block rounded-full px-2 py-0.5 text-xs font-semibold ${response.colour}`}>
                             {latest.totalScore}
