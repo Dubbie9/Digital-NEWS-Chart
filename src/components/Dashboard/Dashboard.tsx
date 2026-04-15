@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import type { Patient, Observation } from '@/types';
 import { CLINICAL_RESPONSES } from '@/lib/scoring';
 import ObservationModal from '@/components/EntryForm/ObservationModal';
@@ -16,6 +16,7 @@ interface Props {
 
 export default function Dashboard({ patients, observations, staffName, onAddObservation }: Props) {
   const { cryptoKey } = useAuth();
+  const navigate = useNavigate();
   const [modalPatient, setModalPatient] = useState<Patient | null>(null);
   const [seeding, setSeeding] = useState(false);
 
@@ -125,14 +126,11 @@ export default function Dashboard({ patients, observations, staffName, onAddObse
                     const hasTodayObs = todayObs.some((o) => o.patientId === patient.id);
 
                     return (
-                      <tr key={patient.id} className="transition hover:bg-slate-50">
+                      <tr key={patient.id} onClick={() => navigate(`/patients/${patient.id}`)} className="cursor-pointer transition hover:bg-slate-50">
                         <td className="px-4 py-3 md:px-6">
-                          <Link
-                            to={`/patients/${patient.id}`}
-                            className="font-medium text-[#0B1E36] underline decoration-slate-300 underline-offset-2 transition hover:text-[#00AEEF] hover:decoration-[#00AEEF]"
-                          >
+                          <span className="font-medium text-[#0B1E36] underline decoration-slate-300 underline-offset-2">
                             {patient.lastName}, {patient.firstName}
-                          </Link>
+                          </span>
                           {hasTodayObs && (
                             <span className="ml-2 inline-block h-1.5 w-1.5 rounded-full bg-green-400" title="Observed today" />
                           )}
@@ -153,7 +151,7 @@ export default function Dashboard({ patients, observations, staffName, onAddObse
                         </td>
                         <td className="px-4 py-3 text-right md:px-6">
                           <button
-                            onClick={() => setModalPatient(patient)}
+                            onClick={(e) => { e.stopPropagation(); setModalPatient(patient); }}
                             className="rounded-full bg-[#00AEEF] px-3 py-1.5 text-xs font-medium text-white transition-all hover:-translate-y-0.5 hover:shadow-md hover:shadow-[#00AEEF]/20 md:px-4"
                           >
                             Record Obs
@@ -174,17 +172,14 @@ export default function Dashboard({ patients, observations, staffName, onAddObse
                 const hasTodayObs = todayObs.some((o) => o.patientId === patient.id);
 
                 return (
-                  <div key={patient.id} className="flex items-center justify-between gap-3 px-4 py-3">
+                  <div key={patient.id} onClick={() => navigate(`/patients/${patient.id}`)} className="flex cursor-pointer items-center justify-between gap-3 px-4 py-3 transition hover:bg-slate-50">
                     <div className="min-w-0 flex-1">
-                      <Link
-                        to={`/patients/${patient.id}`}
-                        className="block truncate text-sm font-medium text-[#0B1E36] underline decoration-slate-300 underline-offset-2 transition hover:text-[#00AEEF] hover:decoration-[#00AEEF]"
-                      >
+                      <span className="block truncate text-sm font-medium text-[#0B1E36] underline decoration-slate-300 underline-offset-2">
                         {patient.lastName}, {patient.firstName}
                         {hasTodayObs && (
                           <span className="ml-1.5 inline-block h-1.5 w-1.5 rounded-full bg-green-400" />
                         )}
-                      </Link>
+                      </span>
                       <p className="text-xs text-slate-400">
                         {patient.roomNumber || 'No bed'}
                         {latest?.declined ? (
@@ -197,7 +192,7 @@ export default function Dashboard({ patients, observations, staffName, onAddObse
                       </p>
                     </div>
                     <button
-                      onClick={() => setModalPatient(patient)}
+                      onClick={(e) => { e.stopPropagation(); setModalPatient(patient); }}
                       className="shrink-0 rounded-full bg-[#00AEEF] px-3 py-1.5 text-xs font-medium text-white"
                     >
                       Record
