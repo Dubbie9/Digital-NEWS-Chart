@@ -86,21 +86,31 @@ export async function importBackup(
     }
   }
 
-  // Validate and store patients (upsert)
+  // Validate and store patients (merge — skip existing by ID)
+  let patientsImported = 0;
   for (const patient of data.patients) {
     PatientSchema.parse(patient);
-    await patientRepo.create(key, patient);
+    const existing = await db.patients.get(patient.id);
+    if (!existing) {
+      await patientRepo.create(key, patient);
+      patientsImported++;
+    }
   }
 
-  // Validate and store observations (upsert)
+  // Validate and store observations (merge — skip existing by ID)
+  let observationsImported = 0;
   for (const obs of data.observations) {
     ObservationSchema.parse(obs);
-    await observationRepo.create(key, obs);
+    const existing = await db.observations.get(obs.id);
+    if (!existing) {
+      await observationRepo.create(key, obs);
+      observationsImported++;
+    }
   }
 
   return {
     wards: data.wards.length,
-    patients: data.patients.length,
-    observations: data.observations.length,
+    patients: patientsImported,
+    observations: observationsImported,
   };
 }

@@ -29,8 +29,8 @@ export interface AuthRecord {
   pinSalt: string;   // base64 salt for PIN hashing
   keySalt: string;   // base64 salt for encryption key derivation
   wardData: string;  // JSON-stringified EncryptedPayload of Ward
-  firstName: string; // plaintext for lock screen display
-  lastName: string;  // plaintext for lock screen display
+  hospitalName: string; // plaintext for lock screen display
+  wardName: string;     // plaintext for lock screen display
 }
 
 // ─── Database ──────────────────────────────────────────────────────
@@ -44,7 +44,7 @@ class NewsDatabase extends Dexie {
 
   constructor() {
     super('news2-chart');
-    this.version(1).stores({
+    this.version(2).stores({
       wards: 'id',
       patients: 'id',
       observations: 'id, patientId',

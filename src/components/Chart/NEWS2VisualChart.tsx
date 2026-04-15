@@ -113,46 +113,15 @@ const NEWS2VisualChart = forwardRef<HTMLDivElement, Props>(
           (a, b) => Number(a.dataset.col) - Number(b.dataset.col),
         );
 
-        for (let i = 0; i < sectionDots.length; i++) {
-          const dotRect = sectionDots[i].getBoundingClientRect();
-          const dotX = dotRect.left + dotRect.width / 2 - containerRect.left + scrollLeft;
-          const dotY = dotRect.top + dotRect.height / 2 - containerRect.top;
-
-          // If it's the first dot, extend to the left edge of the chart (start of day 1)
-          if (i === 0) {
-            // The data columns start after two header columns (70px + 58px = 128px)
-            const leftEdge = 128;
-            newLines.push({
-              x1: leftEdge,
-              y1: dotY,
-              x2: dotX,
-              y2: dotY,
-            });
-          }
-
-          // Connect to the next dot
-          if (i < sectionDots.length - 1) {
-            const nextDotRect = sectionDots[i + 1].getBoundingClientRect();
-            newLines.push({
-              x1: dotX,
-              y1: dotY,
-              x2: nextDotRect.left + nextDotRect.width / 2 - containerRect.left + scrollLeft,
-              y2: nextDotRect.top + nextDotRect.height / 2 - containerRect.top,
-            });
-          }
-
-          // If it's the last dot, extend to the right edge of the month (end of the last column)
-          if (i === sectionDots.length - 1) {
-            // The last column's right edge is the table's right edge
-            const table = container.querySelector('table');
-            const tableWidth = table ? table.getBoundingClientRect().width : containerRect.width;
-            newLines.push({
-              x1: dotX,
-              y1: dotY,
-              x2: tableWidth,
-              y2: dotY,
-            });
-          }
+        for (let i = 0; i < sectionDots.length - 1; i++) {
+          const a = sectionDots[i].getBoundingClientRect();
+          const b = sectionDots[i + 1].getBoundingClientRect();
+          newLines.push({
+            x1: a.left + a.width / 2 - containerRect.left + scrollLeft,
+            y1: a.top + a.height / 2 - containerRect.top,
+            x2: b.left + b.width / 2 - containerRect.left + scrollLeft,
+            y2: b.top + b.height / 2 - containerRect.top,
+          });
         }
       });
 

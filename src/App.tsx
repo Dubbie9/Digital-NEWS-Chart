@@ -4,7 +4,6 @@ import { useAuth } from '@/hooks/useAuth';
 import { useData } from '@/hooks/useData';
 import Login from '@/components/Auth/Login';
 import Dashboard from '@/components/Dashboard/Dashboard';
-import PatientList from '@/components/PatientList/PatientList';
 import NewPatient from '@/components/PatientList/NewPatient';
 import PatientDetail from '@/components/PatientList/PatientDetail';
 import EntryForm from '@/components/EntryForm/EntryForm';
@@ -26,7 +25,7 @@ function NavLink({ to, children }: { to: string; children: React.ReactNode }) {
 }
 
 export default function App() {
-  const { isAuthenticated, isLoading, ward, staffName, initials, logout } = useAuth();
+  const { isAuthenticated, isLoading, ward, staffName, initials, staffLogout } = useAuth();
   const { patients, observations, addPatient, addObservation } = useData();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
@@ -67,7 +66,6 @@ export default function App() {
             </Link>
             <div className="hidden items-center gap-5 md:flex">
               <NavLink to="/">Dashboard</NavLink>
-              <NavLink to="/patients">Patients</NavLink>
               <NavLink to="/settings">Settings</NavLink>
             </div>
           </div>
@@ -83,7 +81,7 @@ export default function App() {
               </span>
             </div>
             <button
-              onClick={logout}
+              onClick={staffLogout}
               className="hidden rounded-full border border-white/10 bg-white/5 px-4 py-1.5 text-xs font-medium text-slate-300 transition hover:bg-white/10 hover:text-white sm:block"
             >
               Sign Out
@@ -111,7 +109,6 @@ export default function App() {
             <div className="absolute left-4 right-4 top-full mt-2 rounded-2xl bg-[#0B1E36] p-4 shadow-xl ring-1 ring-white/10 md:hidden">
               <div className="flex flex-col gap-3">
                 <Link to="/" onClick={() => setMobileMenuOpen(false)} className="rounded-xl px-3 py-2 text-sm text-slate-300 transition hover:bg-white/10 hover:text-white">Dashboard</Link>
-                <Link to="/patients" onClick={() => setMobileMenuOpen(false)} className="rounded-xl px-3 py-2 text-sm text-slate-300 transition hover:bg-white/10 hover:text-white">Patients</Link>
                 <Link to="/settings" onClick={() => setMobileMenuOpen(false)} className="rounded-xl px-3 py-2 text-sm text-slate-300 transition hover:bg-white/10 hover:text-white">Settings</Link>
                 <div className="border-t border-white/10 pt-3">
                   <div className="flex items-center gap-2 px-3">
@@ -121,7 +118,7 @@ export default function App() {
                     <p className="text-xs text-slate-500">{staffName} &middot; {ward?.name}</p>
                   </div>
                   <button
-                    onClick={() => { setMobileMenuOpen(false); logout(); }}
+                    onClick={() => { setMobileMenuOpen(false); staffLogout(); }}
                     className="mt-2 w-full rounded-xl px-3 py-2 text-left text-sm text-red-400 transition hover:bg-white/10"
                   >
                     Sign Out
@@ -137,7 +134,6 @@ export default function App() {
       <main className="mx-auto max-w-5xl px-3 py-4 sm:px-4 sm:py-6 md:py-8">
         <Routes>
           <Route path="/" element={<Dashboard patients={patients} observations={observations} staffName={staffName} onAddObservation={addObservation} />} />
-          <Route path="/patients" element={<PatientList patients={patients} />} />
           <Route path="/patients/new" element={<NewPatient onAdd={addPatient} />} />
           <Route path="/patients/:id" element={<PatientDetail patients={patients} observations={observations} />} />
           <Route path="/patients/:id/observe" element={<EntryForm onSave={addObservation} staffName={staffName} />} />

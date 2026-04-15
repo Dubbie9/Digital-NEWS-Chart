@@ -129,7 +129,7 @@ export default function Dashboard({ patients, observations, staffName, onAddObse
                         <td className="px-4 py-3 md:px-6">
                           <Link
                             to={`/patients/${patient.id}`}
-                            className="font-medium text-[#0B1E36] transition hover:text-[#00AEEF]"
+                            className="font-medium text-[#0B1E36] underline decoration-slate-300 underline-offset-2 transition hover:text-[#00AEEF] hover:decoration-[#00AEEF]"
                           >
                             {patient.lastName}, {patient.firstName}
                           </Link>
@@ -176,7 +176,7 @@ export default function Dashboard({ patients, observations, staffName, onAddObse
                     <div className="min-w-0 flex-1">
                       <Link
                         to={`/patients/${patient.id}`}
-                        className="block truncate text-sm font-medium text-[#0B1E36] transition hover:text-[#00AEEF]"
+                        className="block truncate text-sm font-medium text-[#0B1E36] underline decoration-slate-300 underline-offset-2 transition hover:text-[#00AEEF] hover:decoration-[#00AEEF]"
                       >
                         {patient.lastName}, {patient.firstName}
                         {hasTodayObs && (
