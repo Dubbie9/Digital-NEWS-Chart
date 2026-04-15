@@ -141,7 +141,9 @@ export default function Dashboard({ patients, observations, staffName, onAddObse
                           {patient.roomNumber || '—'}
                         </td>
                         <td className="px-4 py-3 text-center md:px-6">
-                          {response && latest ? (
+                          {latest?.declined ? (
+                            <span className="inline-block rounded-full bg-red-50 px-3 py-1 text-xs font-semibold text-red-500">Declined</span>
+                          ) : response && latest ? (
                             <span className={`inline-block rounded-full px-3 py-1 text-xs font-semibold ${response.colour}`}>
                               {latest.totalScore}
                             </span>
@@ -185,11 +187,13 @@ export default function Dashboard({ patients, observations, staffName, onAddObse
                       </Link>
                       <p className="text-xs text-slate-400">
                         {patient.roomNumber || 'No bed'}
-                        {response && latest && (
+                        {latest?.declined ? (
+                          <span className="ml-2 inline-block rounded-full bg-red-50 px-2 py-0.5 text-xs font-semibold text-red-500">Declined</span>
+                        ) : response && latest ? (
                           <span className={`ml-2 inline-block rounded-full px-2 py-0.5 text-xs font-semibold ${response.colour}`}>
                             {latest.totalScore}
                           </span>
-                        )}
+                        ) : null}
                       </p>
                     </div>
                     <button

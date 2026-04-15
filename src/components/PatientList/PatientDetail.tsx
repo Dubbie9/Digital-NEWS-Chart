@@ -8,10 +8,13 @@ import ObservationHistory from '@/components/Chart/ObservationHistory';
 import { exportPatientObservations } from '@/lib/exportCsv';
 import { exportChartAsPDF } from '@/lib/pdf';
 import { useAuth } from '@/hooks/useAuth';
+import ObservationModal from '@/components/EntryForm/ObservationModal';
 
 interface Props {
   patients: Patient[];
   observations: Observation[];
+  staffName: string;
+  onAddObservation: (observation: Observation) => void;
 }
 
 type TabId = 'chart' | 'table' | 'history';
@@ -26,11 +29,12 @@ function getMonthLabel(year: number, month: number): string {
   return new Date(year, month).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
 }
 
-export default function PatientDetail({ patients, observations }: Props) {
+export default function PatientDetail({ patients, observations, staffName, onAddObservation }: Props) {
   const { id } = useParams<{ id: string }>();
   const { ward } = useAuth();
   const chartRef = useRef<HTMLDivElement>(null);
   const [activeTab, setActiveTab] = useState<TabId>('chart');
+  const [showObsModal, setShowObsModal] = useState(false);
   const [chartMode, setChartMode] = useState<ChartDisplayMode>('dots');
   const now = new Date();
   const [chartYear, setChartYear] = useState(now.getFullYear());
@@ -118,12 +122,12 @@ export default function PatientDetail({ patients, observations }: Props) {
             </svg>
             PDF
           </button>
-          <Link
-            to={`/patients/${patient.id}/observe`}
+          <button
+            onClick={() => setShowObsModal(true)}
             className="group inline-flex items-center gap-1.5 rounded-full bg-[#00AEEF] px-3 py-2 text-xs font-medium text-white transition-all hover:-translate-y-0.5 hover:shadow-lg hover:shadow-[#00AEEF]/20 sm:gap-2 sm:px-5 sm:py-2.5 sm:text-sm"
           >
             + Record Obs
-          </Link>
+          </button>
         </div>
       </div>
 
@@ -257,12 +261,23 @@ export default function PatientDetail({ patients, observations }: Props) {
       )}
       {activeTab === 'history' && <ObservationHistory observations={patientObs} />}
 
-      <Link to="/patients" className="inline-flex items-center gap-1.5 text-sm text-[#00AEEF] transition hover:underline">
+      <Link to="/" className="inline-flex items-center gap-1.5 text-sm text-[#00AEEF] transition hover:underline">
         <svg className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
           <path fillRule="evenodd" d="M17 10a.75.75 0 01-.75.75H5.612l4.158 3.96a.75.75 0 11-1.04 1.08l-5.5-5.25a.75.75 0 010-1.08l5.5-5.25a.75.75 0 111.04 1.08L5.612 9.25H16.25A.75.75 0 0117 10z" clipRule="evenodd" />
         </svg>
-        Back to patients
+        Back to dashboard
       </Link>
+
+      {/* Observation modal */}
+      {showObsModal && (
+        <ObservationModal
+          patientId={patient.id}
+          patientName={`${patient.lastName}, ${patient.firstName}`}
+          staffName={staffName}
+          onSave={onAddObservation}
+          onClose={() => setShowObsModal(false)}
+        />
+      )}
     </div>
   );
 }

@@ -135,7 +135,7 @@ export default function App() {
         <Routes>
           <Route path="/" element={<Dashboard patients={patients} observations={observations} staffName={staffName} onAddObservation={addObservation} />} />
           <Route path="/patients/new" element={<NewPatient onAdd={addPatient} />} />
-          <Route path="/patients/:id" element={<PatientDetail patients={patients} observations={observations} />} />
+          <Route path="/patients/:id" element={<PatientDetail patients={patients} observations={observations} staffName={staffName} onAddObservation={addObservation} />} />
           <Route path="/patients/:id/observe" element={<EntryForm onSave={addObservation} staffName={staffName} />} />
           <Route path="/settings" element={<Settings />} />
           <Route path="*" element={<Navigate to="/" replace />} />
