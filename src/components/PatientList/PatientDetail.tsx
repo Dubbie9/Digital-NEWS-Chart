@@ -4,7 +4,7 @@ import type { Patient, Observation } from '@/types';
 import ScoreDisplay from '@/components/ScoreDisplay/ScoreDisplay';
 import NEWS2VisualChart, { type ChartDisplayMode } from '@/components/Chart/NEWS2VisualChart';
 import ObservationHistory from '@/components/Chart/ObservationHistory';
-import { exportPatientPDF } from '@/lib/pdf';
+import { exportChartAsPDF } from '@/lib/pdf';
 import { useAuth } from '@/hooks/useAuth';
 import ObservationModal from '@/components/EntryForm/ObservationModal';
 
@@ -101,7 +101,7 @@ export default function PatientDetail({ patients, observations, staffName, onAdd
         </div>
         <div className="flex items-center gap-2 sm:gap-3">
           <button
-            onClick={() => exportPatientPDF(patient, patientObs, ward?.name || 'Unknown Ward')}
+            onClick={() => exportChartAsPDF('news-chart', patient, ward?.name || 'Unknown Ward')}
             className="group inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-600 shadow-sm transition-all hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-md sm:gap-2 sm:px-5 sm:py-2.5 sm:text-sm"
           >
             <svg className="h-3.5 w-3.5 sm:h-4 sm:w-4" viewBox="0 0 20 20" fill="currentColor">
