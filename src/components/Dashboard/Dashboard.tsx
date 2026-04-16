@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import type { Patient, Observation } from '@/types';
 import { CLINICAL_RESPONSES } from '@/lib/scoring';
 import ObservationModal from '@/components/EntryForm/ObservationModal';
-import { exportAllObservations } from '@/lib/exportCsv';
+import ExportModal from '@/components/Dashboard/ExportModal';
 import { useAuth } from '@/hooks/useAuth';
 import { seedDemoData } from '@/lib/seedData';
 
@@ -15,9 +15,10 @@ interface Props {
 }
 
 export default function Dashboard({ patients, observations, staffName, onAddObservation }: Props) {
-  const { cryptoKey } = useAuth();
+  const { cryptoKey, ward } = useAuth();
   const navigate = useNavigate();
   const [modalPatient, setModalPatient] = useState<Patient | null>(null);
+  const [showExport, setShowExport] = useState(false);
   const [seeding, setSeeding] = useState(false);
 
   const today = new Date().toDateString();
@@ -51,14 +52,14 @@ export default function Dashboard({ patients, observations, staffName, onAddObse
         </div>
         <div className="flex items-center gap-2 sm:gap-3">
           <button
-            onClick={() => exportAllObservations(patients, observations)}
+            onClick={() => setShowExport(true)}
             className="group inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-600 shadow-sm transition-all hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-md sm:gap-2 sm:px-5 sm:py-2.5 sm:text-sm"
           >
             <svg className="h-3.5 w-3.5 sm:h-4 sm:w-4" viewBox="0 0 20 20" fill="currentColor">
               <path d="M10.75 2.75a.75.75 0 00-1.5 0v8.614L6.295 8.235a.75.75 0 10-1.09 1.03l4.25 4.5a.75.75 0 001.09 0l4.25-4.5a.75.75 0 00-1.09-1.03l-2.955 3.129V2.75z" />
               <path d="M3.5 12.75a.75.75 0 00-1.5 0v2.5A2.75 2.75 0 004.75 18h10.5A2.75 2.75 0 0018 15.25v-2.5a.75.75 0 00-1.5 0v2.5c0 .69-.56 1.25-1.25 1.25H4.75c-.69 0-1.25-.56-1.25-1.25v-2.5z" />
             </svg>
-            Export All
+            Export PDF
           </button>
           <Link
             to="/patients/new"
@@ -213,6 +214,16 @@ export default function Dashboard({ patients, observations, staffName, onAddObse
           staffName={staffName}
           onSave={onAddObservation}
           onClose={() => setModalPatient(null)}
+        />
+      )}
+
+      {/* Export PDF modal */}
+      {showExport && (
+        <ExportModal
+          patients={patients}
+          observations={observations}
+          wardName={ward?.name || 'Unknown Ward'}
+          onClose={() => setShowExport(false)}
         />
       )}
     </div>

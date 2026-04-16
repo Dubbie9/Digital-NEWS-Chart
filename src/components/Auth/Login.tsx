@@ -5,6 +5,7 @@ export default function Login() {
   const {
     isSetup, isWardUnlocked, isLocked,
     hospitalName, wardDisplayName,
+    firstName: lockedFirstName, lastName: lockedLastName,
     recentStaff,
     setup, unlockWard, staffLogin,
   } = useAuth();
@@ -121,11 +122,11 @@ export default function Login() {
   // ═══════════════════════════════════════════════════════════════
   if (!isWardUnlocked) {
     return (
-      <Shell subtitle={isLocked ? 'Session locked' : `${hospitalName} — ${wardDisplayName}`}>
+      <Shell subtitle={isLocked && lockedFirstName ? `${lockedFirstName} ${lockedLastName} — ${wardDisplayName}` : `${hospitalName} — ${wardDisplayName}`}>
         <Card>
           <CardHeader
             icon={<LockIcon />}
-            title={isLocked ? 'Session Locked' : `${wardDisplayName}`}
+            title={isLocked && lockedFirstName ? `Locked — ${lockedFirstName} ${lockedLastName}` : wardDisplayName}
             subtitle="Enter ward PIN to unlock"
           />
           <form onSubmit={handleUnlock} className="space-y-4">

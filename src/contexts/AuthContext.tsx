@@ -138,16 +138,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setRecentStaff(loadRecentStaff());
   }, []);
 
-  // Auto-lock on inactivity (locks the ward, not just staff)
+  // Auto-lock on inactivity — keeps staff name, just locks encryption
   const lock = useCallback(() => {
     if (!isWardUnlocked) return;
     setCryptoKey(null);
     setWard(null);
-    setFirstName('');
-    setLastName('');
     setIsWardUnlocked(false);
-    setIsAuthenticated(false);
     setIsLocked(true);
+    // Keep firstName, lastName, isAuthenticated intact so after
+    // PIN re-entry the staff is immediately back in their session
   }, [isWardUnlocked]);
 
   useInactivity(INACTIVITY_TIMEOUT, lock, isWardUnlocked);
@@ -226,8 +225,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setIsWardUnlocked(true);
     setIsLocked(false);
 
+    // If staff was already logged in before lock, restore their session
+    if (firstName && lastName) {
+      setIsAuthenticated(true);
+    }
+
     return true;
-  }, []);
+  }, [firstName, lastName]);
 
   // ─── Staff Login (name only) ───────────────────────────────────
 
