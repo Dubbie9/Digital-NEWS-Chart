@@ -3,7 +3,6 @@ import { Link, useParams } from 'react-router-dom';
 import type { Patient, Observation } from '@/types';
 import ScoreDisplay from '@/components/ScoreDisplay/ScoreDisplay';
 import NEWS2VisualChart, { type ChartDisplayMode } from '@/components/Chart/NEWS2VisualChart';
-import Chart from '@/components/Chart/Chart';
 import ObservationHistory from '@/components/Chart/ObservationHistory';
 import { exportPatientObservations } from '@/lib/exportCsv';
 import { exportChartAsPDF } from '@/lib/pdf';
@@ -17,11 +16,10 @@ interface Props {
   onAddObservation: (observation: Observation) => void;
 }
 
-type TabId = 'chart' | 'table' | 'history';
+type TabId = 'chart' | 'history';
 
 const TABS: { id: TabId; label: string }[] = [
   { id: 'chart', label: 'NEWS2 Chart' },
-  { id: 'table', label: 'Data Table' },
   { id: 'history', label: 'History' },
 ];
 
@@ -252,12 +250,6 @@ export default function PatientDetail({ patients, observations, staffName, onAdd
             month={chartMonth}
           />
         </>
-      )}
-      {activeTab === 'table' && (
-        <Chart
-          observations={patientObs}
-          patientName={`${patient.firstName} ${patient.lastName}`}
-        />
       )}
       {activeTab === 'history' && <ObservationHistory observations={patientObs} />}
 
