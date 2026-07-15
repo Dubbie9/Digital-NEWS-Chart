@@ -170,6 +170,17 @@ const GRID_LINE: [number, number, number] = [90, 90, 90];
 const PLOT_BLUE = '#0066cc';
 const DECLINED_RED = '#DC2626';
 
+/**
+ * jsPDF's built-in fonts use WinAnsi encoding, which has no ≥ / ≤ /
+ * subscript-2 glyphs (they render as garbage). Substitute ASCII forms.
+ */
+function pdfSafe(text: string): string {
+  return text
+    .replace(/≥/g, '>=')
+    .replace(/≤/g, '<=')
+    .replace(/₂/g, '2');
+}
+
 // ─── Filled chart pages ──────────────────────────────────────────────
 
 const CHART_MARGIN = 8;
@@ -389,24 +400,29 @@ function drawChartGrid(pdf: jsPDF, monthObs: Observation[], columns: Observation
     setTextHex(pdf, labelColour);
     pdf.setFont('helvetica', 'bold');
     pdf.setFontSize(6);
-    const labelLines = pdf.splitTextToSize(
-      `${section.sectionLabel ? section.sectionLabel + '  ' : ''}${section.paramLabel}`,
+    const lineH = 2.4;
+    const allLabelLines = pdf.splitTextToSize(
+      pdfSafe(`${section.sectionLabel ? section.sectionLabel + '  ' : ''}${section.paramLabel}`),
       SECTION_LABEL_W - 3,
     ) as string[];
-    const infoLines = section.info
-      ? (pdf.splitTextToSize(section.info, SECTION_LABEL_W - 3) as string[])
+    const allInfoLines = section.info
+      ? (pdf.splitTextToSize(pdfSafe(section.info), SECTION_LABEL_W - 3) as string[])
       : [];
-    const textBlockH = (labelLines.length + infoLines.length) * 2.4;
-    let textY = sectionTop + Math.max(2.4, (sectionH - textBlockH) / 2 + 2);
+    // Clamp to the section height so text never bleeds into the next block
+    const maxLines = Math.max(1, Math.floor((sectionH - 1) / lineH));
+    const labelLines = allLabelLines.slice(0, maxLines);
+    const infoLines = allInfoLines.slice(0, Math.max(0, maxLines - labelLines.length));
+    const textBlockH = (labelLines.length + infoLines.length) * lineH;
+    let textY = sectionTop + Math.max(lineH, (sectionH - textBlockH) / 2 + 2);
     for (const line of labelLines) {
       pdf.text(line, labelX + 1.5, textY);
-      textY += 2.4;
+      textY += lineH;
     }
     pdf.setFont('helvetica', 'normal');
     pdf.setFontSize(4.8);
     for (const line of infoLines) {
       pdf.text(line, labelX + 1.5, textY);
-      textY += 2.4;
+      textY += lineH;
     }
 
     // Band rows
@@ -421,7 +437,7 @@ function drawChartGrid(pdf: jsPDF, monthObs: Observation[], columns: Observation
       pdf.setFont('helvetica', 'bold');
       pdf.setFontSize(Math.min(5.2, bandH * 1.9));
       pdf.setTextColor(30, 30, 30);
-      pdf.text(band.label, bandX + BAND_LABEL_W - 1, rowY + bandH / 2, {
+      pdf.text(pdfSafe(band.label), bandX + BAND_LABEL_W - 1, rowY + bandH / 2, {
         align: 'right',
         baseline: 'middle',
       });
