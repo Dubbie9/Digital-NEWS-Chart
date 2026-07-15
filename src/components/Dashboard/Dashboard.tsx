@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import type { Patient, Observation } from '@/types';
 import { CLINICAL_RESPONSES } from '@/lib/scoring';
@@ -22,25 +22,39 @@ export default function Dashboard({ patients, observations, staffName, onAddObse
   const [seeding, setSeeding] = useState(false);
 
   const today = new Date().toDateString();
-  const todayObs = observations.filter(
-    (o) => new Date(o.recordedAt).toDateString() === today,
+  const todayObs = useMemo(
+    () => observations.filter((o) => new Date(o.recordedAt).toDateString() === today),
+    [observations, today],
   );
 
-  function latestObsFor(patientId: string): Observation | undefined {
-    return [...observations]
-      .filter((o) => o.patientId === patientId)
-      .sort((a, b) => new Date(b.recordedAt).getTime() - new Date(a.recordedAt).getTime())[0];
-  }
+  // Latest observation per patient in a single pass (the previous
+  // per-patient filter+sort was O(patients × observations log observations)
+  // on every render)
+  const latestByPatient = useMemo(() => {
+    const map = new Map<string, Observation>();
+    for (const o of observations) {
+      const current = map.get(o.patientId);
+      if (!current || o.recordedAt > current.recordedAt) map.set(o.patientId, o);
+    }
+    return map;
+  }, [observations]);
+
+  const observedTodayIds = useMemo(
+    () => new Set(todayObs.map((o) => o.patientId)),
+    [todayObs],
+  );
 
   // Sort patients by room/bed number
-  const sortedByRoom = [...patients].sort((a, b) => {
-    const roomA = a.roomNumber || '';
-    const roomB = b.roomNumber || '';
-    const numA = parseInt(roomA, 10);
-    const numB = parseInt(roomB, 10);
-    if (!isNaN(numA) && !isNaN(numB)) return numA - numB;
-    return roomA.localeCompare(roomB);
-  });
+  const sortedByRoom = useMemo(() => {
+    return [...patients].sort((a, b) => {
+      const roomA = a.roomNumber || '';
+      const roomB = b.roomNumber || '';
+      const numA = parseInt(roomA, 10);
+      const numB = parseInt(roomB, 10);
+      if (!isNaN(numA) && !isNaN(numB)) return numA - numB;
+      return roomA.localeCompare(roomB);
+    });
+  }, [patients]);
 
   return (
     <div className="space-y-6">
@@ -122,9 +136,9 @@ export default function Dashboard({ patients, observations, staffName, onAddObse
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {sortedByRoom.map((patient) => {
-                    const latest = latestObsFor(patient.id);
+                    const latest = latestByPatient.get(patient.id);
                     const response = latest ? CLINICAL_RESPONSES[latest.riskLevel] : null;
-                    const hasTodayObs = todayObs.some((o) => o.patientId === patient.id);
+                    const hasTodayObs = observedTodayIds.has(patient.id);
 
                     return (
                       <tr key={patient.id} onClick={() => navigate(`/patients/${patient.id}`)} className="cursor-pointer transition hover:bg-slate-50">
@@ -168,9 +182,9 @@ export default function Dashboard({ patients, observations, staffName, onAddObse
             {/* Mobile card list */}
             <div className="divide-y divide-slate-100 sm:hidden">
               {sortedByRoom.map((patient) => {
-                const latest = latestObsFor(patient.id);
+                const latest = latestByPatient.get(patient.id);
                 const response = latest ? CLINICAL_RESPONSES[latest.riskLevel] : null;
-                const hasTodayObs = todayObs.some((o) => o.patientId === patient.id);
+                const hasTodayObs = observedTodayIds.has(patient.id);
 
                 return (
                   <div key={patient.id} onClick={() => navigate(`/patients/${patient.id}`)} className="flex cursor-pointer items-center justify-between gap-3 px-4 py-3 transition hover:bg-slate-50">

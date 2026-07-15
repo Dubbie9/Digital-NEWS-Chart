@@ -79,10 +79,13 @@ export const patientRepo = {
     }
   },
 
-  async delete(_key: CryptoKey, id: string): Promise<void> {
+  async delete(key: CryptoKey, id: string, staffName?: string, patientLabel?: string): Promise<void> {
     await db.patients.delete(id);
     // Also delete associated observations
     await db.observations.where('patientId').equals(id).delete();
+    if (staffName) {
+      await writeAuditLog(key, 'delete_patient', staffName, `Patient: ${patientLabel ?? id}`);
+    }
   },
 };
 

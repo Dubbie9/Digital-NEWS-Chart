@@ -52,8 +52,15 @@ export default function Login() {
     setPinError('');
     setLoading(true);
     try {
-      const ok = await unlockWard(pin);
-      if (!ok) { setPinError('Incorrect PIN'); setPin(''); }
+      const result = await unlockWard(pin);
+      if (!result.ok) {
+        setPinError(
+          result.retryAfterSeconds
+            ? `Too many attempts — locked for ${result.retryAfterSeconds}s`
+            : 'Incorrect PIN',
+        );
+        setPin('');
+      }
     } catch {
       setPinError('Unlock failed.');
     } finally {
@@ -138,6 +145,7 @@ export default function Login() {
                 inputMode="numeric"
                 required
                 autoFocus
+                autoComplete="off"
                 value={pin}
                 onChange={(e) => { setPin(e.target.value.replace(/\D/g, '')); setPinError(''); }}
                 placeholder="Enter PIN"
@@ -200,11 +208,12 @@ export default function Login() {
 
 // ─── Shared Components ─────────────────────────────────────────────
 
-const inputClass = 'w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-800 placeholder-slate-400 outline-none transition-all focus:border-[#00AEEF] focus:bg-white focus:ring-1 focus:ring-[#00AEEF]';
+// text-base (16px) on inputs stops iOS Safari's focus auto-zoom
+const inputClass = 'w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-base text-slate-800 placeholder-slate-400 outline-none transition-all focus:border-[#00AEEF] focus:bg-white focus:ring-1 focus:ring-[#00AEEF]';
 
 function Shell({ subtitle, children }: { subtitle: string; children: React.ReactNode }) {
   return (
-    <div className="relative flex min-h-screen w-full flex-col items-center justify-center overflow-hidden bg-slate-50 px-4 py-8">
+    <div className="relative flex min-h-dvh w-full flex-col items-center justify-center overflow-hidden bg-slate-50 px-4 py-8">
       <EcgBackground />
       <div className="relative z-10 mb-8 flex flex-col items-center">
         <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-[#0B1E36] shadow-lg">
@@ -220,9 +229,6 @@ function Shell({ subtitle, children }: { subtitle: string; children: React.React
         <p className="mt-1 text-sm text-slate-400">{subtitle}</p>
       </div>
       <div className="relative z-10 w-full max-w-md">{children}</div>
-      <style>{`
-        @keyframes ecg-scroll { 0% { transform: translateX(0); } 100% { transform: translateX(-33.33%); } }
-      `}</style>
     </div>
   );
 }
@@ -250,7 +256,8 @@ function Field({ label, id, type = 'text', inputMode, required, value, onChange,
   return (
     <div>
       <label htmlFor={id} className="mb-1.5 block text-xs font-medium text-slate-500">{label}</label>
-      <input id={id} type={type} inputMode={inputMode} required={required} value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} autoFocus={autoFocus} className={inputClass} />
+      {/* Shared ward device: never let the browser store or suggest values */}
+      <input id={id} type={type} inputMode={inputMode} required={required} value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} autoFocus={autoFocus} autoComplete="off" className={inputClass} />
     </div>
   );
 }
@@ -275,10 +282,14 @@ function SubmitButton({ loading, label, disabled }: { loading: boolean; label: s
 function EcgBackground() {
   const p = "M0,100 L80,100 L100,100 L110,90 L120,100 L160,100 L175,100 L180,60 L185,160 L190,30 L195,140 L200,100 L220,100 L240,95 L260,100 L300,100 M300,100 L380,100 L400,100 L410,90 L420,100 L460,100 L475,100 L480,60 L485,160 L490,30 L495,140 L500,100 L520,100 L540,95 L560,100 L600,100 M600,100 L680,100 L700,100 L710,90 L720,100 L760,100 L775,100 L780,60 L785,160 L790,30 L795,140 L800,100 L820,100 L840,95 L860,100 L900,100 M900,100 L980,100 L1000,100 L1010,90 L1020,100 L1060,100 L1075,100 L1080,60 L1085,160 L1090,30 L1095,140 L1100,100 L1120,100 L1140,95 L1160,100 L1200,100 M1200,100 L1280,100 L1300,100 L1310,90 L1320,100 L1360,100 L1375,100 L1380,60 L1385,160 L1390,30 L1395,140 L1400,100 L1420,100 L1440,95 L1460,100 L1500,100 M1500,100 L1580,100 L1600,100 L1610,90 L1620,100 L1660,100 L1675,100 L1680,60 L1685,160 L1690,30 L1695,140 L1700,100 L1720,100 L1740,95 L1760,100 L1800,100 M1800,100 L1880,100 L1900,100 L1910,90 L1920,100 L1960,100 L1975,100 L1980,60 L1985,160 L1990,30 L1995,140 L2000,100 L2020,100 L2040,95 L2060,100 L2100,100 M2100,100 L2180,100 L2200,100 L2210,90 L2220,100 L2260,100 L2275,100 L2280,60 L2285,160 L2290,30 L2295,140 L2300,100 L2320,100 L2340,95 L2360,100 L2400,100";
   return (
-    <div className="pointer-events-none absolute inset-0 flex items-center justify-center overflow-hidden opacity-[0.04]">
-      <svg viewBox="0 0 2400 200" className="absolute w-[300%] max-w-none" preserveAspectRatio="none" style={{ animation: 'ecg-scroll 8s linear infinite' }}>
-        <path d={p} fill="none" stroke="#0B1E36" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
-      </svg>
+    <div className="pointer-events-none absolute inset-0 overflow-hidden opacity-[0.04]" aria-hidden="true">
+      {/* Transform is animated on this div (not the SVG) so it composites on
+          the GPU instead of repainting the vector every frame */}
+      <div className="ecg-anim absolute left-0 h-40 w-[300%]" style={{ top: 'calc(50% - 5rem)' }}>
+        <svg viewBox="0 0 2400 200" className="h-full w-full" preserveAspectRatio="none">
+          <path d={p} fill="none" stroke="#0B1E36" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      </div>
     </div>
   );
 }

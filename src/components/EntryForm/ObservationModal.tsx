@@ -7,6 +7,8 @@ import {
   determineRiskLevel,
   CLINICAL_RESPONSES,
 } from '@/lib/scoring';
+import { newId } from '@/lib/id';
+import ModalShell from '@/components/common/ModalShell';
 
 interface Props {
   patientId: string;
@@ -55,7 +57,7 @@ export default function ObservationModal({ patientId, patientName, staffName, on
     if (!liveScores || liveTotal === null || !liveRisk) return;
 
     const observation: Observation = {
-      id: `o${Date.now()}`,
+      id: newId('o'),
       patientId,
       recordedAt: new Date().toISOString(),
       recordedBy: staffName,
@@ -81,7 +83,7 @@ export default function ObservationModal({ patientId, patientName, staffName, on
 
   const handleDeclined = () => {
     const observation: Observation = {
-      id: `o${Date.now()}`,
+      id: newId('o'),
       patientId,
       recordedAt: new Date().toISOString(),
       recordedBy: staffName,
@@ -103,15 +105,12 @@ export default function ObservationModal({ patientId, patientName, staffName, on
     onClose();
   };
 
-  const inputClass = 'w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-800 placeholder-slate-400 outline-none transition-all focus:border-[#00AEEF] focus:bg-white focus:ring-1 focus:ring-[#00AEEF]';
+  // text-base (16px) on controls stops iOS Safari's focus auto-zoom
+  const inputClass = 'w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-base text-slate-800 placeholder-slate-400 outline-none transition-all focus:border-[#00AEEF] focus:bg-white focus:ring-1 focus:ring-[#00AEEF]';
   const labelClass = 'mb-1.5 block text-xs font-medium text-slate-500';
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 backdrop-blur-sm sm:items-center" onClick={onClose}>
-      <div
-        className="mx-0 w-full max-w-lg overflow-hidden rounded-t-2xl border border-slate-200 bg-white shadow-2xl sm:mx-4 sm:rounded-2xl"
-        onClick={(e) => e.stopPropagation()}
-      >
+    <ModalShell onClose={onClose} labelledBy="obs-modal-title">
         {/* Header */}
         <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3 sm:px-6 sm:py-4">
           <div className="flex items-center gap-3">
@@ -121,7 +120,7 @@ export default function ObservationModal({ patientId, patientName, staffName, on
               </svg>
             </div>
             <div>
-              <h2 className="text-base font-semibold text-[#0B1E36]">Record Observation</h2>
+              <h2 id="obs-modal-title" className="text-base font-semibold text-[#0B1E36]">Record Observation</h2>
               <p className="text-xs text-slate-400">{patientName}</p>
             </div>
           </div>
@@ -145,30 +144,30 @@ export default function ObservationModal({ patientId, patientName, staffName, on
           {/* Temperature */}
           <div>
             <label className={labelClass}>Temperature (°C)</label>
-            <input type="number" required step="0.1" value={temperature} onChange={(e) => setTemperature(e.target.value)} className={inputClass} />
+            <input type="number" required step="0.1" inputMode="decimal" value={temperature} onChange={(e) => setTemperature(e.target.value)} className={inputClass} />
           </div>
 
           {/* Blood Pressure */}
           <div>
             <label className={labelClass}>Blood Pressure (mmHg)</label>
             <div className="flex gap-2">
-              <input type="number" required placeholder="Systolic" value={systolicBP} onChange={(e) => setSystolicBP(e.target.value)} className={inputClass} />
+              <input type="number" required inputMode="numeric" placeholder="Systolic" value={systolicBP} onChange={(e) => setSystolicBP(e.target.value)} className={inputClass} />
               <span className="flex items-center text-slate-300">/</span>
-              <input type="number" placeholder="Diastolic" value={diastolicBP} onChange={(e) => setDiastolicBP(e.target.value)} className={inputClass} />
+              <input type="number" inputMode="numeric" placeholder="Diastolic" value={diastolicBP} onChange={(e) => setDiastolicBP(e.target.value)} className={inputClass} />
             </div>
           </div>
 
           {/* Pulse */}
           <div>
             <label className={labelClass}>Pulse (bpm)</label>
-            <input type="number" required value={pulse} onChange={(e) => setPulse(e.target.value)} className={inputClass} />
+            <input type="number" required inputMode="numeric" value={pulse} onChange={(e) => setPulse(e.target.value)} className={inputClass} />
           </div>
 
           {/* SpO2 */}
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className={labelClass}>SpO2 (%)</label>
-              <input type="number" required value={spO2} onChange={(e) => setSpO2(e.target.value)} className={inputClass} />
+              <input type="number" required inputMode="numeric" value={spO2} onChange={(e) => setSpO2(e.target.value)} className={inputClass} />
             </div>
             <div>
               <label className={labelClass}>SpO2 Scale</label>
@@ -191,7 +190,7 @@ export default function ObservationModal({ patientId, patientName, staffName, on
           {/* Respiration */}
           <div>
             <label className={labelClass}>Respiration Rate (breaths/min)</label>
-            <input type="number" required value={respirationRate} onChange={(e) => setRespirationRate(e.target.value)} className={inputClass} />
+            <input type="number" required inputMode="numeric" value={respirationRate} onChange={(e) => setRespirationRate(e.target.value)} className={inputClass} />
           </div>
 
           {/* Consciousness */}
@@ -209,7 +208,7 @@ export default function ObservationModal({ patientId, patientName, staffName, on
           {/* Weight */}
           <div>
             <label className={labelClass}>Weight (kg)</label>
-            <input type="number" step="0.1" value={weight} onChange={(e) => setWeight(e.target.value)} className={inputClass} />
+            <input type="number" step="0.1" inputMode="decimal" value={weight} onChange={(e) => setWeight(e.target.value)} className={inputClass} />
           </div>
 
           {/* Live score */}
@@ -241,13 +240,13 @@ export default function ObservationModal({ patientId, patientName, staffName, on
             </button>
             <button
               onClick={handleSubmit}
-              className="rounded-full bg-[#0B1E36] px-5 py-2 text-xs font-medium text-white transition-all hover:-translate-y-0.5 hover:shadow-lg hover:shadow-slate-900/20"
+              disabled={!canScore}
+              className="rounded-full bg-[#0B1E36] px-5 py-2 text-xs font-medium text-white transition-all hover:-translate-y-0.5 hover:shadow-lg hover:shadow-slate-900/20 disabled:opacity-40"
             >
               Save Observation
             </button>
           </div>
         </div>
-      </div>
-    </div>
+    </ModalShell>
   );
 }

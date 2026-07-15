@@ -8,6 +8,7 @@ import {
   determineRiskLevel,
   CLINICAL_RESPONSES,
 } from '@/lib/scoring';
+import { newId } from '@/lib/id';
 
 interface Props {
   onSave: (observation: Observation) => void;
@@ -55,7 +56,7 @@ export default function EntryForm({ onSave, staffName }: Props) {
     if (!liveScores || liveTotal === null || !liveRisk || !patientId) return;
 
     const observation: Observation = {
-      id: `o${Date.now()}`,
+      id: newId('o'),
       patientId,
       recordedAt: new Date().toISOString(),
       recordedBy: staffName,
@@ -95,7 +96,7 @@ export default function EntryForm({ onSave, staffName }: Props) {
             <select
               value={spO2Scale}
               onChange={(e) => setSpO2Scale(Number(e.target.value) as SpO2Scale)}
-              className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-800 outline-none transition-all focus:border-[#00AEEF] focus:bg-white focus:ring-1 focus:ring-[#00AEEF]"
+              className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-base text-slate-800 outline-none transition-all focus:border-[#00AEEF] focus:bg-white focus:ring-1 focus:ring-[#00AEEF]"
             >
               <option value={1}>Scale 1</option>
               <option value={2}>Scale 2 (Hypercapnic)</option>
@@ -107,7 +108,7 @@ export default function EntryForm({ onSave, staffName }: Props) {
             <select
               value={oxygenDelivery}
               onChange={(e) => setOxygenDelivery(e.target.value as OxygenDelivery)}
-              className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-800 outline-none transition-all focus:border-[#00AEEF] focus:bg-white focus:ring-1 focus:ring-[#00AEEF]"
+              className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-base text-slate-800 outline-none transition-all focus:border-[#00AEEF] focus:bg-white focus:ring-1 focus:ring-[#00AEEF]"
             >
               <option value="Air">Air</option>
               <option value="Oxygen">Oxygen</option>
@@ -122,7 +123,7 @@ export default function EntryForm({ onSave, staffName }: Props) {
             <select
               value={consciousness}
               onChange={(e) => setConsciousness(e.target.value as ConsciousnessLevel)}
-              className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-800 outline-none transition-all focus:border-[#00AEEF] focus:bg-white focus:ring-1 focus:ring-[#00AEEF]"
+              className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-base text-slate-800 outline-none transition-all focus:border-[#00AEEF] focus:bg-white focus:ring-1 focus:ring-[#00AEEF]"
             >
               <option value="Alert">Alert</option>
               <option value="Confusion">Confusion</option>
@@ -181,9 +182,10 @@ function NumberField({
         type="number"
         required
         step={step}
+        inputMode={step ? 'decimal' : 'numeric'}
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-800 placeholder-slate-400 outline-none transition-all focus:border-[#00AEEF] focus:bg-white focus:ring-1 focus:ring-[#00AEEF]"
+        className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-base text-slate-800 placeholder-slate-400 outline-none transition-all focus:border-[#00AEEF] focus:bg-white focus:ring-1 focus:ring-[#00AEEF]"
       />
     </div>
   );

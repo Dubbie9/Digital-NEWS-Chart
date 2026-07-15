@@ -1,1 +1,73 @@
 @import "tailwindcss";
+
+/* ─── Mobile / iPad smoothness & stability ───────────────────────────
+   These rules target the main sources of perceived jitter on touch
+   devices: tap-highlight flashes, double-tap-zoom delay, focus zoom,
+   and rubber-band scroll chaining. */
+
+html {
+  /* Stop iOS/Android inflating text after orientation changes */
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+body {
+  -webkit-tap-highlight-color: transparent;
+  -webkit-font-smoothing: antialiased;
+  /* No pull-to-refresh / scroll chaining mid data entry */
+  overscroll-behavior-y: none;
+  /* Keep content clear of the notch / home indicator in standalone PWA mode */
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
+}
+
+/* Remove the ~350ms double-tap-to-zoom delay on interactive elements */
+button,
+a,
+label,
+input,
+select,
+textarea {
+  touch-action: manipulation;
+}
+
+/* iOS Safari zooms the whole page when focusing a control whose font-size
+   is under 16px. Form controls default to 16px; text-size utilities on a
+   control still win (higher specificity), so keep controls >= text-base. */
+input,
+select,
+textarea {
+  font-size: max(1rem, 1em);
+}
+
+/* ─── Login ECG background ───────────────────────────────────────────
+   Animated on a wrapper div (not the SVG itself) so the browser can
+   promote it to its own compositor layer. The path pattern repeats every
+   300 viewBox units (12.5% of 2400), so the loop offset must be a
+   multiple of 12.5% to be seamless — 25% here. */
+
+@keyframes ecg-scroll {
+  from {
+    transform: translate3d(0, 0, 0);
+  }
+  to {
+    transform: translate3d(-25%, 0, 0);
+  }
+}
+
+.ecg-anim {
+  animation: ecg-scroll 10s linear infinite;
+  will-change: transform;
+}
+
+/* ─── Reduced motion ────────────────────────────────────────────────── */
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  ::before,
+  ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

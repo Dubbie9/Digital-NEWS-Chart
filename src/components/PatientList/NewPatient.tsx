@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { Patient } from '@/types';
+import { newId } from '@/lib/id';
 
 interface Props {
   onAdd: (patient: Patient) => void;
@@ -18,7 +19,7 @@ export default function NewPatient({ onAdd }: Props) {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const patient: Patient = {
-      id: `p${Date.now()}`,
+      id: newId('p'),
       firstName,
       lastName,
       dateOfBirth,
@@ -57,7 +58,7 @@ export default function NewPatient({ onAdd }: Props) {
           </button>
           <button
             type="button"
-            onClick={() => navigate('/patients')}
+            onClick={() => navigate('/')}
             className="rounded-full border border-slate-200 px-6 py-2.5 text-sm font-medium text-slate-500 transition-all hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-sm"
           >
             Cancel
@@ -90,6 +91,8 @@ function FormField({
       <label htmlFor={id} className="mb-1.5 block text-xs font-medium text-slate-500">
         {label}
       </label>
+      {/* autoComplete off: never let the browser store patient details;
+          text-base (16px) stops iOS Safari's focus auto-zoom */}
       <input
         id={id}
         type={type}
@@ -97,7 +100,8 @@ function FormField({
         placeholder={placeholder}
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-800 placeholder-slate-400 outline-none transition-all focus:border-[#00AEEF] focus:bg-white focus:ring-1 focus:ring-[#00AEEF]"
+        autoComplete="off"
+        className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-base text-slate-800 placeholder-slate-400 outline-none transition-all focus:border-[#00AEEF] focus:bg-white focus:ring-1 focus:ring-[#00AEEF]"
       />
     </div>
   );

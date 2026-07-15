@@ -68,6 +68,7 @@ export const AuditLogSchema = z.object({
     'logout',
     'create_patient',
     'update_patient',
+    'delete_patient',
     'create_observation',
     'view_patient',
     'export_data',

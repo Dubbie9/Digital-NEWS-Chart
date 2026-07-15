@@ -8,6 +8,7 @@ import {
   useState,
   useCallback,
   useEffect,
+  useMemo,
   type ReactNode,
 } from 'react';
 import { db, type AuthRecord } from '@/lib/db';
@@ -58,6 +59,12 @@ function addToRecentStaff(first: string, last: string) {
 
 // ─── Context Shape ─────────────────────────────────────────────────
 
+export interface UnlockResult {
+  ok: boolean;
+  /** Set when PIN entry is temporarily locked out after repeated failures */
+  retryAfterSeconds?: number;
+}
+
 export interface AuthContextValue {
   // Ward-level state
   isSetup: boolean;      // ward has been set up with PIN
@@ -83,7 +90,7 @@ export interface AuthContextValue {
 
   // Actions
   setup: (hospitalName: string, wardName: string, pin: string) => Promise<void>;
-  unlockWard: (pin: string) => Promise<boolean>;
+  unlockWard: (pin: string) => Promise<UnlockResult>;
   staffLogin: (firstName: string, lastName: string) => void;
   staffLogout: () => void;  // back to staff name entry, ward stays unlocked
   lock: () => void;         // auto-lock: clears key, needs PIN
@@ -99,6 +106,12 @@ function extractInitials(first: string, last: string): string {
 }
 
 const INACTIVITY_TIMEOUT = 5 * 60 * 1000; // 5 minutes
+
+// PIN brute-force protection: after MAX_FREE_ATTEMPTS consecutive failures,
+// PIN entry locks out with an exponentially growing delay.
+const MAX_FREE_ATTEMPTS = 5;
+const BASE_LOCKOUT_MS = 30 * 1000;
+const MAX_LOCKOUT_MS = 5 * 60 * 1000;
 
 // ─── Provider ──────────────────────────────────────────────────────
 
@@ -204,13 +217,39 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // ─── Unlock Ward (PIN entry) ───────────────────────────────────
 
-  const unlockWard = useCallback(async (pin: string): Promise<boolean> => {
+  const unlockWard = useCallback(async (pin: string): Promise<UnlockResult> => {
     const authRecord = await db.auth.get('primary');
-    if (!authRecord) return false;
+    if (!authRecord) return { ok: false };
+
+    // Enforce lockout window from previous failed attempts
+    const lockedUntil = authRecord.lockUntil ? Date.parse(authRecord.lockUntil) : 0;
+    if (Date.now() < lockedUntil) {
+      return {
+        ok: false,
+        retryAfterSeconds: Math.ceil((lockedUntil - Date.now()) / 1000),
+      };
+    }
 
     const pinSalt = saltFromBase64(authRecord.pinSalt);
     const pinHashValue = await hashPin(pin, pinSalt);
-    if (pinHashValue !== authRecord.pinHash) return false;
+    if (pinHashValue !== authRecord.pinHash) {
+      const failedAttempts = (authRecord.failedAttempts ?? 0) + 1;
+      let retryAfterSeconds: number | undefined;
+      let lockUntil = '';
+      if (failedAttempts >= MAX_FREE_ATTEMPTS) {
+        const lockMs = Math.min(
+          BASE_LOCKOUT_MS * 2 ** (failedAttempts - MAX_FREE_ATTEMPTS),
+          MAX_LOCKOUT_MS,
+        );
+        lockUntil = new Date(Date.now() + lockMs).toISOString();
+        retryAfterSeconds = Math.ceil(lockMs / 1000);
+      }
+      await db.auth.update('primary', { failedAttempts, lockUntil });
+      return { ok: false, retryAfterSeconds };
+    }
+
+    // Correct PIN — reset the failure counter
+    await db.auth.update('primary', { failedAttempts: 0, lockUntil: '' });
 
     const keySalt = saltFromBase64(authRecord.keySalt);
     const key = await deriveKey(pin, keySalt);
@@ -230,7 +269,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setIsAuthenticated(true);
     }
 
-    return true;
+    return { ok: true };
   }, [firstName, lastName]);
 
   // ─── Staff Login (name only) ───────────────────────────────────
@@ -281,7 +320,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // ─── Context value ─────────────────────────────────────────────
 
-  const value: AuthContextValue = {
+  const value: AuthContextValue = useMemo(() => ({
     isSetup,
     isWardUnlocked,
     isAuthenticated,
@@ -302,7 +341,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     staffLogout,
     lock,
     resetApp,
-  };
+  }), [
+    isSetup, isWardUnlocked, isAuthenticated, isLocked, isLoading,
+    ward, hospitalName, wardDisplayName, firstName, lastName,
+    staffName, initials, cryptoKey, recentStaff,
+    setup, unlockWard, staffLogin, staffLogout, lock, resetApp,
+  ]);
 
   return (
     <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

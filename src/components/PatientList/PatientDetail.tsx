@@ -1,10 +1,12 @@
-import { useState, useRef } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import type { Patient, Observation } from '@/types';
 import ScoreDisplay from '@/components/ScoreDisplay/ScoreDisplay';
 import NEWS2VisualChart, { type ChartDisplayMode } from '@/components/Chart/NEWS2VisualChart';
 import ObservationHistory from '@/components/Chart/ObservationHistory';
-import { exportChartAsPDF } from '@/lib/pdf';
+import type { PdfExportFormat } from '@/lib/pdf';
+import { writeAuditLog } from '@/lib/audit';
+import { patientRepo } from '@/lib/repositories';
 import { useAuth } from '@/hooks/useAuth';
 import ObservationModal from '@/components/EntryForm/ObservationModal';
 
@@ -28,22 +30,33 @@ function getMonthLabel(year: number, month: number): string {
 
 export default function PatientDetail({ patients, observations, staffName, onAddObservation }: Props) {
   const { id } = useParams<{ id: string }>();
-  const { ward } = useAuth();
-  const chartRef = useRef<HTMLDivElement>(null);
+  const navigate = useNavigate();
+  const { ward, cryptoKey } = useAuth();
   const [activeTab, setActiveTab] = useState<TabId>('chart');
   const [showObsModal, setShowObsModal] = useState(false);
   const [chartMode, setChartMode] = useState<ChartDisplayMode>('dots');
+  const [exportMenuOpen, setExportMenuOpen] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const now = new Date();
   const [chartYear, setChartYear] = useState(now.getFullYear());
   const [chartMonth, setChartMonth] = useState(now.getMonth());
   const patient = patients.find((p) => p.id === id);
 
+  // Audit trail: record which patient record was opened, by whom
+  const patientId = patient?.id;
+  useEffect(() => {
+    if (patientId && cryptoKey && staffName) {
+      writeAuditLog(cryptoKey, 'view_patient', staffName, `Patient: ${patientId}`);
+    }
+  }, [patientId, cryptoKey, staffName]);
+
   if (!patient) {
     return (
       <div className="space-y-4">
         <h1 className="text-2xl font-semibold tracking-tight text-[#0B1E36]">Patient Not Found</h1>
-        <Link to="/patients" className="text-[#00AEEF] transition hover:underline">
-          Back to patients
+        <Link to="/" className="text-[#00AEEF] transition hover:underline">
+          Back to dashboard
         </Link>
       </div>
     );
@@ -86,6 +99,28 @@ export default function PatientDetail({ patients, observations, staffName, onAdd
 
   const isCurrentMonth = chartYear === now.getFullYear() && chartMonth === now.getMonth();
 
+  const handleExport = async (format: PdfExportFormat) => {
+    setExportMenuOpen(false);
+    if (exporting) return;
+    setExporting(true);
+    try {
+      // Lazy-load the PDF machinery (jsPDF) — keeps it out of the main bundle
+      const { exportPatientPDF } = await import('@/lib/pdf');
+      await exportPatientPDF(patient, patientObs, ward?.name || 'Unknown Ward', format);
+      if (cryptoKey) {
+        await writeAuditLog(cryptoKey, 'export_data', staffName, `PDF (${format}): ${patient.lastName}, ${patient.firstName}`);
+      }
+    } finally {
+      setExporting(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!cryptoKey) return;
+    await patientRepo.delete(cryptoKey, patient.id, staffName, `${patient.lastName}, ${patient.firstName}`);
+    navigate('/');
+  };
+
   return (
     <div className="space-y-6">
       {/* Patient header */}
@@ -100,16 +135,44 @@ export default function PatientDetail({ patients, observations, staffName, onAdd
           </p>
         </div>
         <div className="flex items-center gap-2 sm:gap-3">
-          <button
-            onClick={() => exportChartAsPDF('news-chart', patient, ward?.name || 'Unknown Ward')}
-            className="group inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-600 shadow-sm transition-all hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-md sm:gap-2 sm:px-5 sm:py-2.5 sm:text-sm"
-          >
-            <svg className="h-3.5 w-3.5 sm:h-4 sm:w-4" viewBox="0 0 20 20" fill="currentColor">
-              <path d="M10.75 2.75a.75.75 0 00-1.5 0v8.614L6.295 8.235a.75.75 0 10-1.09 1.03l4.25 4.5a.75.75 0 001.09 0l4.25-4.5a.75.75 0 00-1.09-1.03l-2.955 3.129V2.75z" />
-              <path d="M3.5 12.75a.75.75 0 00-1.5 0v2.5A2.75 2.75 0 004.75 18h10.5A2.75 2.75 0 0018 15.25v-2.5a.75.75 0 00-1.5 0v2.5c0 .69-.56 1.25-1.25 1.25H4.75c-.69 0-1.25-.56-1.25-1.25v-2.5z" />
-            </svg>
-            PDF
-          </button>
+          <div className="relative">
+            <button
+              onClick={() => setExportMenuOpen((open) => !open)}
+              disabled={exporting}
+              aria-haspopup="menu"
+              aria-expanded={exportMenuOpen}
+              className="group inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-600 shadow-sm transition-all hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-md disabled:opacity-40 sm:gap-2 sm:px-5 sm:py-2.5 sm:text-sm"
+            >
+              <svg className="h-3.5 w-3.5 sm:h-4 sm:w-4" viewBox="0 0 20 20" fill="currentColor">
+                <path d="M10.75 2.75a.75.75 0 00-1.5 0v8.614L6.295 8.235a.75.75 0 10-1.09 1.03l4.25 4.5a.75.75 0 001.09 0l4.25-4.5a.75.75 0 00-1.09-1.03l-2.955 3.129V2.75z" />
+                <path d="M3.5 12.75a.75.75 0 00-1.5 0v2.5A2.75 2.75 0 004.75 18h10.5A2.75 2.75 0 0018 15.25v-2.5a.75.75 0 00-1.5 0v2.5c0 .69-.56 1.25-1.25 1.25H4.75c-.69 0-1.25-.56-1.25-1.25v-2.5z" />
+              </svg>
+              {exporting ? 'Exporting…' : 'Export PDF'}
+            </button>
+            {exportMenuOpen && (
+              <>
+                <div className="fixed inset-0 z-30" onClick={() => setExportMenuOpen(false)} aria-hidden="true" />
+                <div role="menu" className="absolute right-0 z-40 mt-2 w-56 overflow-hidden rounded-2xl border border-slate-200 bg-white p-1.5 shadow-xl">
+                  <button
+                    role="menuitem"
+                    onClick={() => handleExport('chart')}
+                    className="block w-full rounded-xl px-3 py-2 text-left transition hover:bg-slate-50"
+                  >
+                    <span className="block text-sm font-medium text-[#0B1E36]">Filled NEWS2 chart</span>
+                    <span className="block text-xs text-slate-400">The chart as plotted, per month</span>
+                  </button>
+                  <button
+                    role="menuitem"
+                    onClick={() => handleExport('record')}
+                    className="block w-full rounded-xl px-3 py-2 text-left transition hover:bg-slate-50"
+                  >
+                    <span className="block text-sm font-medium text-[#0B1E36]">Observation record</span>
+                    <span className="block text-xs text-slate-400">Table of recorded values</span>
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
           <button
             onClick={() => setShowObsModal(true)}
             className="group inline-flex items-center gap-1.5 rounded-full bg-[#00AEEF] px-3 py-2 text-xs font-medium text-white transition-all hover:-translate-y-0.5 hover:shadow-lg hover:shadow-[#00AEEF]/20 sm:gap-2 sm:px-5 sm:py-2.5 sm:text-sm"
@@ -232,7 +295,6 @@ export default function PatientDetail({ patients, observations, staffName, onAdd
           )}
 
           <NEWS2VisualChart
-            ref={chartRef}
             id="news-chart"
             observations={patientObs}
             displayMode={chartMode}
@@ -243,12 +305,41 @@ export default function PatientDetail({ patients, observations, staffName, onAdd
       )}
       {activeTab === 'history' && <ObservationHistory observations={patientObs} />}
 
-      <Link to="/" className="inline-flex items-center gap-1.5 text-sm text-[#00AEEF] transition hover:underline">
-        <svg className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-          <path fillRule="evenodd" d="M17 10a.75.75 0 01-.75.75H5.612l4.158 3.96a.75.75 0 11-1.04 1.08l-5.5-5.25a.75.75 0 010-1.08l5.5-5.25a.75.75 0 111.04 1.08L5.612 9.25H16.25A.75.75 0 0117 10z" clipRule="evenodd" />
-        </svg>
-        Back to dashboard
-      </Link>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <Link to="/" className="inline-flex items-center gap-1.5 text-sm text-[#00AEEF] transition hover:underline">
+          <svg className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+            <path fillRule="evenodd" d="M17 10a.75.75 0 01-.75.75H5.612l4.158 3.96a.75.75 0 11-1.04 1.08l-5.5-5.25a.75.75 0 010-1.08l5.5-5.25a.75.75 0 111.04 1.08L5.612 9.25H16.25A.75.75 0 0117 10z" clipRule="evenodd" />
+          </svg>
+          Back to dashboard
+        </Link>
+
+        {/* Data minimisation: remove the record (and all observations) from
+            this device once the patient no longer needs to be on it */}
+        {confirmDelete ? (
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-slate-500">Delete this patient and all observations from this device?</span>
+            <button
+              onClick={handleDelete}
+              className="rounded-full bg-red-500 px-3 py-1.5 text-xs font-medium text-white transition hover:bg-red-600"
+            >
+              Yes, delete
+            </button>
+            <button
+              onClick={() => setConfirmDelete(false)}
+              className="rounded-full border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-500 transition hover:border-slate-300"
+            >
+              Cancel
+            </button>
+          </div>
+        ) : (
+          <button
+            onClick={() => setConfirmDelete(true)}
+            className="self-start text-xs text-slate-400 underline decoration-slate-200 underline-offset-2 transition hover:text-red-500 sm:self-auto"
+          >
+            Delete patient record
+          </button>
+        )}
+      </div>
 
       {/* Observation modal */}
       {showObsModal && (

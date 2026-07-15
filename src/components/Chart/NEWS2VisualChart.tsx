@@ -6,6 +6,7 @@ import {
   TITLE_BG,
   findMatchingBandIndex,
   sectionHasData,
+  totalScoreColour,
 } from '@/lib/chartConfig';
 
 export type ChartDisplayMode = 'dots' | 'numbers';
@@ -26,13 +27,6 @@ function getInitials(name: string): string {
     .map((w) => w[0])
     .join('')
     .toUpperCase();
-}
-
-function totalScoreColour(total: number, hasRed: boolean): string {
-  if (total >= 7) return '#F69781';
-  if (total >= 5) return '#FCC98A';
-  if (total >= 3 && hasRed) return '#FFF2AC';
-  return '#ffffff';
 }
 
 interface Line {
@@ -84,7 +78,10 @@ const NEWS2VisualChart = forwardRef<HTMLDivElement, Props>(
 
     const visibleSections = NEWS2_SECTIONS.filter((s) => sectionHasData(s, sorted));
 
-    // Measure dot positions and compute connecting lines
+    // Measure dot positions and compute connecting lines.
+    // Coordinates are converted to *content* space (scrollLeft added back),
+    // so they stay valid while the user scrolls — no per-scroll-frame
+    // re-measurement needed.
     const computeLines = useCallback(() => {
       const container = internalRef.current;
       if (!container) return;
@@ -129,21 +126,22 @@ const NEWS2VisualChart = forwardRef<HTMLDivElement, Props>(
     }, []);
 
     useEffect(() => {
-      // Compute after initial render
-      const timer = setTimeout(computeLines, 50);
+      // Measure once layout has settled, and again on resize. Never on
+      // scroll — measuring/re-rendering per scroll frame caused visible
+      // jank on iPads.
+      const frame = requestAnimationFrame(computeLines);
       window.addEventListener('resize', computeLines);
       return () => {
-        clearTimeout(timer);
+        cancelAnimationFrame(frame);
         window.removeEventListener('resize', computeLines);
       };
-    }, [computeLines, observations]);
+    }, [computeLines, observations, displayMode, displayYear, displayMonth]);
 
     return (
       <div
         ref={internalRef}
         id={id}
-        className="relative -mx-3 overflow-x-auto rounded-lg shadow sm:mx-0"
-        onScroll={computeLines}
+        className="relative -mx-3 overflow-x-auto overscroll-x-contain rounded-lg shadow sm:mx-0"
       >
         {/* SVG overlay for connecting lines — must match full scrollable width */}
         <svg

@@ -32,7 +32,7 @@ export default function App() {
   // Show loading state while checking auth
   if (isLoading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-slate-50">
+      <div className="flex min-h-dvh items-center justify-center bg-slate-50">
         <div className="flex flex-col items-center gap-3">
           <div className="h-8 w-8 animate-spin rounded-full border-2 border-[#00AEEF] border-t-transparent" />
           <p className="text-sm text-slate-400">Loading...</p>
@@ -46,9 +46,9 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-dvh bg-slate-50 pt-[env(safe-area-inset-top)]">
       {/* Floating pill navbar */}
-      <div className="sticky top-2 z-50 mx-auto w-full max-w-5xl px-2 pt-2 sm:top-3 sm:px-3 sm:pt-3">
+      <div className="sticky top-[max(0.5rem,env(safe-area-inset-top))] z-50 mx-auto w-full max-w-5xl px-2 pt-2 sm:top-[max(0.75rem,env(safe-area-inset-top))] sm:px-3 sm:pt-3">
         <nav className="relative flex h-12 items-center justify-between rounded-full bg-[#0B1E36] px-3 ring-1 ring-white/10 sm:h-14 sm:px-4">
           {/* Logo + nav links */}
           <div className="flex items-center gap-3 sm:gap-6">

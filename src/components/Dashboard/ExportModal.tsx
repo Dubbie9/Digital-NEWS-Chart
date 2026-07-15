@@ -1,6 +1,9 @@
 import { useState } from 'react';
 import type { Patient, Observation } from '@/types';
-import { exportPatientPDF, exportMultiplePatientPDFs } from '@/lib/pdf';
+import type { PdfExportFormat } from '@/lib/pdf';
+import { writeAuditLog } from '@/lib/audit';
+import { useAuth } from '@/hooks/useAuth';
+import ModalShell from '@/components/common/ModalShell';
 
 interface Props {
   patients: Patient[];
@@ -9,10 +12,19 @@ interface Props {
   onClose: () => void;
 }
 
+const FORMAT_OPTIONS: { value: PdfExportFormat; label: string; description: string }[] = [
+  { value: 'chart', label: 'Filled NEWS2 chart', description: 'The chart as plotted — one page set per month' },
+  { value: 'record', label: 'Observation record', description: 'Table of the recorded values' },
+  { value: 'both', label: 'Chart + record', description: 'Both in one document' },
+];
+
 export default function ExportModal({ patients, observations, wardName, onClose }: Props) {
+  const { cryptoKey, staffName } = useAuth();
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [format, setFormat] = useState<PdfExportFormat>('chart');
   const [exporting, setExporting] = useState(false);
   const [progress, setProgress] = useState({ done: 0, total: 0 });
+  const [error, setError] = useState('');
 
   const allSelected = selected.size === patients.length && patients.length > 0;
 
@@ -35,28 +47,34 @@ export default function ExportModal({ patients, observations, wardName, onClose 
 
   const handleExport = async () => {
     const selectedPatients = patients.filter((p) => selected.has(p.id));
-    if (selectedPatients.length === 0) return;
+    if (selectedPatients.length === 0 || exporting) return;
 
     setExporting(true);
-
-    if (selectedPatients.length === 1) {
-      const patient = selectedPatients[0];
-      const patientObs = observations
-        .filter((o) => o.patientId === patient.id)
-        .sort((a, b) => new Date(a.recordedAt).getTime() - new Date(b.recordedAt).getTime());
-      exportPatientPDF(patient, patientObs, wardName);
-      setExporting(false);
-      onClose();
-    } else {
-      setProgress({ done: 0, total: selectedPatients.length });
-      await exportMultiplePatientPDFs(
-        selectedPatients,
-        observations,
-        wardName,
-        (done, total) => setProgress({ done, total }),
+    setError('');
+    setProgress({ done: 0, total: selectedPatients.length });
+    try {
+      const entries = selectedPatients.map((patient) => ({
+        patient,
+        observations: observations.filter((o) => o.patientId === patient.id),
+      }));
+      // Lazy-load the PDF machinery (jsPDF) — keeps it out of the main bundle
+      const { exportPatientsPDF } = await import('@/lib/pdf');
+      await exportPatientsPDF(entries, wardName, format, (done, total) =>
+        setProgress({ done, total }),
       );
-      setExporting(false);
+      if (cryptoKey) {
+        await writeAuditLog(
+          cryptoKey,
+          'export_data',
+          staffName,
+          `PDF (${format}): ${selectedPatients.length} patient(s)`,
+        );
+      }
       onClose();
+    } catch {
+      setError('Export failed. Please try again.');
+    } finally {
+      setExporting(false);
     }
   };
 
@@ -64,11 +82,7 @@ export default function ExportModal({ patients, observations, wardName, onClose 
   const sorted = [...patients].sort((a, b) => a.lastName.localeCompare(b.lastName));
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 backdrop-blur-sm sm:items-center" onClick={onClose}>
-      <div
-        className="mx-0 w-full max-w-md overflow-hidden rounded-t-2xl border border-slate-200 bg-white shadow-2xl sm:mx-4 sm:rounded-2xl"
-        onClick={(e) => e.stopPropagation()}
-      >
+    <ModalShell onClose={onClose} labelledBy="export-modal-title" maxWidth="max-w-md">
         {/* Header */}
         <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3 sm:px-6 sm:py-4">
           <div className="flex items-center gap-3">
@@ -79,18 +93,48 @@ export default function ExportModal({ patients, observations, wardName, onClose 
               </svg>
             </div>
             <div>
-              <h2 className="text-base font-semibold text-[#0B1E36]">Export as PDF</h2>
-              <p className="text-xs text-slate-400">Select patients to export</p>
+              <h2 id="export-modal-title" className="text-base font-semibold text-[#0B1E36]">Export as PDF</h2>
+              <p className="text-xs text-slate-400">Choose format and patients</p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="text-slate-300 transition-colors hover:text-slate-600"
+            className="flex h-8 w-8 items-center justify-center rounded-full text-slate-300 transition-colors hover:text-slate-600"
+            aria-label="Close"
           >
             <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
               <path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z" />
             </svg>
           </button>
+        </div>
+
+        {/* Format selection */}
+        <div className="border-b border-slate-100 px-4 py-3 sm:px-6" role="radiogroup" aria-label="Export format">
+          <div className="grid gap-1.5">
+            {FORMAT_OPTIONS.map((opt) => (
+              <label
+                key={opt.value}
+                className={`flex cursor-pointer items-start gap-3 rounded-xl border px-3 py-2 transition ${
+                  format === opt.value
+                    ? 'border-[#00AEEF] bg-[#00AEEF]/5'
+                    : 'border-slate-200 hover:border-slate-300'
+                }`}
+              >
+                <input
+                  type="radio"
+                  name="export-format"
+                  value={opt.value}
+                  checked={format === opt.value}
+                  onChange={() => setFormat(opt.value)}
+                  className="mt-0.5 h-4 w-4 border-slate-300 text-[#00AEEF] focus:ring-[#00AEEF]"
+                />
+                <span className="min-w-0">
+                  <span className="block text-sm font-medium text-[#0B1E36]">{opt.label}</span>
+                  <span className="block text-xs text-slate-400">{opt.description}</span>
+                </span>
+              </label>
+            ))}
+          </div>
         </div>
 
         {/* Select All */}
@@ -109,7 +153,7 @@ export default function ExportModal({ patients, observations, wardName, onClose 
         </div>
 
         {/* Patient list */}
-        <div className="max-h-[50vh] overflow-y-auto px-4 py-2 sm:px-6">
+        <div className="max-h-[35vh] overflow-y-auto overscroll-y-contain px-4 py-2 sm:px-6">
           {sorted.map((patient) => (
             <label
               key={patient.id}
@@ -127,7 +171,7 @@ export default function ExportModal({ patients, observations, wardName, onClose 
                 </p>
                 <p className="text-xs text-slate-400">
                   {patient.roomNumber ? `Room ${patient.roomNumber}` : 'No room'}
-                  {patient.nhsNumber && ` \u00b7 NHS: ${patient.nhsNumber}`}
+                  {patient.nhsNumber && ` · NHS: ${patient.nhsNumber}`}
                 </p>
               </div>
             </label>
@@ -141,6 +185,8 @@ export default function ExportModal({ patients, observations, wardName, onClose 
               <div className="h-4 w-4 animate-spin rounded-full border-2 border-[#00AEEF] border-t-transparent" />
               Exporting {progress.done}/{progress.total}...
             </div>
+          ) : error ? (
+            <p className="text-xs font-medium text-red-500">{error}</p>
           ) : (
             <p className="text-xs text-slate-400">
               {selected.size === 0
@@ -163,11 +209,10 @@ export default function ExportModal({ patients, observations, wardName, onClose 
               disabled={selected.size === 0 || exporting}
               className="rounded-full bg-[#0B1E36] px-4 py-2 text-xs font-medium text-white transition hover:shadow-lg disabled:opacity-40"
             >
-              {selected.size > 1 ? `Export ${selected.size} PDFs` : 'Export PDF'}
+              Export PDF
             </button>
           </div>
         </div>
-      </div>
-    </div>
+    </ModalShell>
   );
 }

@@ -30,6 +30,14 @@ export const SCORE_COLOURS: Record<number, { bg: string; text: string }> = {
 
 export const TITLE_BG = '#0066cc';
 
+/** Background colour for the NEWS TOTAL row (screen chart and PDF export) */
+export function totalScoreColour(total: number, hasRed: boolean): string {
+  if (total >= 7) return '#F69781';
+  if (total >= 5) return '#FCC98A';
+  if (total >= 3 && hasRed) return '#FFF2AC';
+  return '#ffffff';
+}
+
 // ─── Chart sections (matching the reference chart.js `news` object) ─
 
 export const NEWS2_SECTIONS: ChartSection[] = [
