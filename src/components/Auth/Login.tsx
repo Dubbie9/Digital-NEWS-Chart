@@ -52,15 +52,8 @@ export default function Login() {
     setPinError('');
     setLoading(true);
     try {
-      const result = await unlockWard(pin);
-      if (!result.ok) {
-        setPinError(
-          result.retryAfterSeconds
-            ? `Too many attempts — locked for ${result.retryAfterSeconds}s`
-            : 'Incorrect PIN',
-        );
-        setPin('');
-      }
+      const ok = await unlockWard(pin);
+      if (!ok) { setPinError('Incorrect PIN'); setPin(''); }
     } catch {
       setPinError('Unlock failed.');
     } finally {

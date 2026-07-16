@@ -31,8 +31,6 @@ export interface AuthRecord {
   wardData: string;  // JSON-stringified EncryptedPayload of Ward
   hospitalName: string; // plaintext for lock screen display
   wardName: string;     // plaintext for lock screen display
-  failedAttempts?: number; // consecutive wrong PIN entries
-  lockUntil?: string;      // ISO timestamp — PIN entry refused until then
 }
 
 // ─── Database ──────────────────────────────────────────────────────

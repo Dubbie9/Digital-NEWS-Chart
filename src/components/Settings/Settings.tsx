@@ -2,6 +2,12 @@ import { useState, useRef } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useData } from '@/hooks/useData';
 import { exportBackup, downloadBackup, importBackup, type ImportResult } from '@/lib/backup';
+import {
+  exportTransferFile,
+  downloadTransferFile,
+  importTransferFile,
+  MIN_TRANSFER_PASSPHRASE_LENGTH,
+} from '@/lib/transfer';
 import { exportPatientObservations } from '@/lib/exportCsv';
 import { writeAuditLog } from '@/lib/audit';
 
@@ -13,6 +19,14 @@ export default function Settings() {
   const [importing, setImporting] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [confirmReset, setConfirmReset] = useState(false);
+
+  // Ward-to-ward transfer state
+  const transferFileRef = useRef<HTMLInputElement>(null);
+  const [transferSelected, setTransferSelected] = useState<Set<string>>(new Set());
+  const [sendPass, setSendPass] = useState('');
+  const [receivePass, setReceivePass] = useState('');
+  const [transferBusy, setTransferBusy] = useState<'send' | 'receive' | null>(null);
+  const [transferMsg, setTransferMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   const handleExportAll = async () => {
     if (!cryptoKey) return;
@@ -61,6 +75,68 @@ export default function Settings() {
 
   const handleReset = async () => {
     await resetApp();
+  };
+
+  // ─── Ward-to-ward transfer ───────────────────────────────────────
+
+  const toggleTransferPatient = (id: string) => {
+    setTransferSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const handleTransferExport = async () => {
+    if (!cryptoKey || transferSelected.size === 0 || sendPass.length < MIN_TRANSFER_PASSPHRASE_LENGTH) return;
+    setTransferBusy('send');
+    setTransferMsg(null);
+    try {
+      const selectedPatients = patients.filter((p) => transferSelected.has(p.id));
+      const selectedObs = observations.filter((o) => transferSelected.has(o.patientId));
+      const blob = await exportTransferFile(sendPass, selectedPatients, selectedObs, {
+        hospital: hospitalName || ward?.trustName || '',
+        ward: ward?.name || '',
+      });
+      downloadTransferFile(blob);
+      await writeAuditLog(cryptoKey, 'export_data', staffName, `Ward transfer file: ${selectedPatients.length} patient(s)`);
+      setTransferMsg({
+        type: 'success',
+        text: `Transfer file created for ${selectedPatients.length} patient(s). Share the passphrase with the receiving ward separately — never alongside the file.`,
+      });
+      setSendPass('');
+      setTransferSelected(new Set());
+    } catch {
+      setTransferMsg({ type: 'error', text: 'Could not create the transfer file. Please try again.' });
+    } finally {
+      setTransferBusy(null);
+    }
+  };
+
+  const handleTransferImport = async (file: File) => {
+    if (!cryptoKey || receivePass.length < MIN_TRANSFER_PASSPHRASE_LENGTH) return;
+    setTransferBusy('receive');
+    setTransferMsg(null);
+    try {
+      const result = await importTransferFile(receivePass, file, cryptoKey, ward?.id);
+      await writeAuditLog(
+        cryptoKey,
+        'import_data',
+        staffName,
+        `Ward transfer received${result.sourceWard ? ` from "${result.sourceWard}"` : ''}: ${result.patients} patients, ${result.observations} observations`,
+      );
+      setTransferMsg({
+        type: 'success',
+        text: `Received ${result.patients} new patient(s) and ${result.observations} observation(s)${result.sourceWard ? ` from ${result.sourceWard}` : ''}. Records already on this device were skipped.`,
+      });
+      setReceivePass('');
+    } catch {
+      setTransferMsg({ type: 'error', text: 'Import failed — wrong passphrase or not a valid transfer file.' });
+    } finally {
+      setTransferBusy(null);
+      if (transferFileRef.current) transferFileRef.current.value = '';
+    }
   };
 
   return (
@@ -130,6 +206,113 @@ export default function Settings() {
             message.type === 'success' ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'
           }`}>
             {message.text}
+          </div>
+        )}
+      </section>
+
+      {/* Ward-to-ward transfer */}
+      <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+        <h2 className="mb-1 text-sm font-semibold text-[#0B1E36]">Transfer Between Wards</h2>
+        <p className="mb-4 text-xs text-slate-400">
+          Move patients to another ward's device — for example when a patient is transferred.
+          The file is encrypted with a transfer passphrase you agree with the receiving ward
+          (backups can't be used for this, as they require the same ward PIN).
+        </p>
+
+        <div className="grid gap-5 md:grid-cols-2">
+          {/* Send */}
+          <div>
+            <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-400">Send patients</h3>
+            {patients.length === 0 ? (
+              <p className="text-xs text-slate-400">No patients on this device.</p>
+            ) : (
+              <>
+                <div className="mb-3 max-h-44 space-y-0.5 overflow-y-auto overscroll-y-contain rounded-xl border border-slate-100 p-2">
+                  {patients
+                    .slice()
+                    .sort((a, b) => a.lastName.localeCompare(b.lastName))
+                    .map((patient) => (
+                      <label key={patient.id} className="flex cursor-pointer items-center gap-2.5 rounded-lg px-2 py-1.5 transition hover:bg-slate-50">
+                        <input
+                          type="checkbox"
+                          checked={transferSelected.has(patient.id)}
+                          onChange={() => toggleTransferPatient(patient.id)}
+                          className="h-4 w-4 rounded border-slate-300 text-[#00AEEF] focus:ring-[#00AEEF]"
+                        />
+                        <span className="truncate text-sm text-[#0B1E36]">
+                          {patient.lastName}, {patient.firstName}
+                        </span>
+                      </label>
+                    ))}
+                </div>
+                <input
+                  type="password"
+                  value={sendPass}
+                  onChange={(e) => setSendPass(e.target.value)}
+                  placeholder={`Transfer passphrase (min ${MIN_TRANSFER_PASSPHRASE_LENGTH} characters)`}
+                  autoComplete="off"
+                  className="mb-2 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-base text-slate-800 placeholder-slate-400 outline-none transition-all focus:border-[#00AEEF] focus:bg-white focus:ring-1 focus:ring-[#00AEEF]"
+                />
+                <button
+                  onClick={handleTransferExport}
+                  disabled={transferBusy !== null || transferSelected.size === 0 || sendPass.length < MIN_TRANSFER_PASSPHRASE_LENGTH}
+                  className="w-full rounded-xl bg-[#0B1E36] px-5 py-2.5 text-sm font-medium text-white transition-all hover:shadow-lg hover:shadow-slate-900/20 disabled:opacity-40"
+                >
+                  {transferBusy === 'send'
+                    ? 'Creating transfer file...'
+                    : `Create Transfer File${transferSelected.size > 0 ? ` (${transferSelected.size})` : ''}`}
+                </button>
+              </>
+            )}
+          </div>
+
+          {/* Receive */}
+          <div>
+            <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-400">Receive patients</h3>
+            <p className="mb-3 text-xs text-slate-400">
+              Enter the passphrase agreed with the sending ward, then choose their transfer file.
+              Incoming patients join this ward; existing records are never overwritten.
+            </p>
+            <input
+              type="password"
+              value={receivePass}
+              onChange={(e) => setReceivePass(e.target.value)}
+              placeholder="Transfer passphrase"
+              autoComplete="off"
+              className="mb-2 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-base text-slate-800 placeholder-slate-400 outline-none transition-all focus:border-[#00AEEF] focus:bg-white focus:ring-1 focus:ring-[#00AEEF]"
+            />
+            <label
+              className={`flex w-full items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-5 py-2.5 text-sm font-medium shadow-sm transition-all ${
+                transferBusy !== null || receivePass.length < MIN_TRANSFER_PASSPHRASE_LENGTH
+                  ? 'cursor-not-allowed text-slate-300'
+                  : 'cursor-pointer text-slate-600 hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-md'
+              }`}
+            >
+              <svg className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                <path d="M9.25 13.25a.75.75 0 001.5 0V4.636l2.955 3.129a.75.75 0 001.09-1.03l-4.25-4.5a.75.75 0 00-1.09 0l-4.25 4.5a.75.75 0 101.09 1.03L9.25 4.636v8.614z" />
+                <path d="M3.5 12.75a.75.75 0 00-1.5 0v2.5A2.75 2.75 0 004.75 18h10.5A2.75 2.75 0 0018 15.25v-2.5a.75.75 0 00-1.5 0v2.5c0 .69-.56 1.25-1.25 1.25H4.75c-.69 0-1.25-.56-1.25-1.25v-2.5z" />
+              </svg>
+              {transferBusy === 'receive' ? 'Importing...' : 'Choose Transfer File'}
+              <input
+                ref={transferFileRef}
+                type="file"
+                accept=".news2transfer"
+                className="hidden"
+                disabled={transferBusy !== null || receivePass.length < MIN_TRANSFER_PASSPHRASE_LENGTH}
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) handleTransferImport(file);
+                }}
+              />
+            </label>
+          </div>
+        </div>
+
+        {transferMsg && (
+          <div className={`mt-4 rounded-xl p-3 text-xs font-medium ${
+            transferMsg.type === 'success' ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'
+          }`}>
+            {transferMsg.text}
           </div>
         )}
       </section>
