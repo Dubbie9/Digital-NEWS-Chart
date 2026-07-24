@@ -64,7 +64,18 @@ export default function Dashboard({ patients, observations, staffName, onAddObse
           <h1 className="text-xl font-semibold tracking-tight text-[#0B1E36] sm:text-2xl">Ward Dashboard</h1>
           <p className="mt-0.5 text-xs text-slate-400 sm:mt-1 sm:text-sm">Overview of patients and observations</p>
         </div>
-        <div className="flex items-center gap-2 sm:gap-3">
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+          <Link
+            to="/observations"
+            className="group inline-flex items-center gap-1.5 rounded-full bg-[#00AEEF] px-3 py-2 text-xs font-medium text-white shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-lg hover:shadow-[#00AEEF]/25 sm:gap-2 sm:px-5 sm:py-2.5 sm:text-sm"
+          >
+            <svg className="h-3.5 w-3.5 sm:h-4 sm:w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2" />
+              <rect x="9" y="3" width="6" height="4" rx="1" />
+              <path d="M9 12h6M9 16h6" />
+            </svg>
+            Today's Observations
+          </Link>
           <button
             onClick={() => setShowExport(true)}
             className="group inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-600 shadow-sm transition-all hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-md sm:gap-2 sm:px-5 sm:py-2.5 sm:text-sm"
